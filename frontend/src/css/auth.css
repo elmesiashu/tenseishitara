@@ -1,0 +1,211 @@
+@import url('https://fonts.googleapis.com/css?family=Poppins:400,500,600,700&display=swap');
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Poppins', sans-serif;
+}
+
+/* ---------------- AUTH WRAPPER ---------------- */
+.auth-wrapper {
+  display: flex;
+  width: 900px;
+  max-width: 90%;
+  height: 500px;
+  border-radius: 15px;
+  overflow: hidden;
+  box-shadow: 0px 10px 30px rgba(0,0,0,0.2);
+  margin: 50px auto 0;
+}
+
+/* ---------------- PANELS ---------------- */
+.left-panel, .right-panel,
+.left-panel-rs, .right-panel-rs {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 50px;
+}
+
+/* ---------------- LOGIN ---------------- */
+.left-panel {
+  background: #fff;
+}
+
+.left-panel .title {
+  text-align: center;
+  margin-bottom: 10px;
+  font-weight: bold;
+}
+
+.right-panel {
+  background-image: url('https://images2.alphacoders.com/105/1056990.png');
+  background-size: fit;
+  background-position: center;
+  color: #fff;
+  text-align: center;
+}
+
+.right-panel h2 {
+  font-size: 25px;
+  margin-bottom: 15px;
+  font-weight: bold;
+  color: #fff;
+  -webkit-text-stroke: 1px #000;
+  text-shadow: 
+    1px 1px 0 #000,
+   -1px 1px 0 #000,
+    1px -1px 0 #000,
+   -1px -1px 0 #000;
+}
+
+.right-panel p {
+  font-size: 13px;
+  margin-bottom: 25px;
+  color: white;
+}
+
+/* ---------------- INPUT FIELDS ---------------- */
+.field {
+  position: relative;
+  margin-bottom: 20px;
+}
+
+.field input {
+  width: 100%;
+  padding: 12px 20px;
+  border-radius: 25px;
+  border: 1px solid #ccc;
+  font-size: 16px;
+  outline: none;
+  text-transform: none;
+  autocapitalize: none;
+  -webkit-autocapitalize: none;
+  -moz-autocapitalize: none;
+}
+
+.field label {
+  position: absolute;
+  left: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #aaa;
+  pointer-events: none;
+  transition: all 0.3s ease;
+}
+
+.field input:focus + label,
+.field input:valid + label {
+  top: 0;
+  font-size: 12px;
+  color: #4158d0;
+  background: #fff;
+  padding: 0 5px;
+}
+
+.field input[type="submit"] {
+  width: 100%;
+  padding: 12px;
+  border: none;
+  background: #6dc5c5;
+  color: #fff;
+  font-size: 18px;
+  border-radius: 25px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.field input[type="submit"]:hover {
+  background: #5bb1b1;
+}
+
+/* ---------------- BUTTON ---------------- */
+.btn-register {
+  padding: 10px 30px;
+  border-radius: 25px;
+  color: white;
+  text-decoration: none;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  background-color: #4158d0;
+  font-size: 15px;
+}
+
+.btn-register:hover {
+  background: linear-gradient(90deg, #020024 0%, #090979 35%, #00d4ff 100%);
+  color: white;
+}
+
+/* ---------------- MISC ---------------- */
+.remember-forgot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+}
+
+.forgot {
+  text-decoration: none;
+  color: #4158d0;
+}
+
+.social-login {
+  margin-top: 20px;
+  text-align: center;
+}
+
+.social-icons {
+  margin-top: 10px;
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+
+.social-icons button {
+  width: 35px;
+  height: 35px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+/* ---------------- REGISTER ---------------- */
+.left-panel-rs {
+  background-image: url('https://images2.alphacoders.com/105/1056990.png');
+  background-size: fit;
+  background-position: center;
+  color: #fff;
+  text-align: center;
+}
+
+.left-panel-rs h2 {
+  font-size: 25px;
+  margin-bottom: 15px;
+  font-weight: bold;
+  color: #fff;
+  -webkit-text-stroke: 1px #000;
+  text-shadow: 
+    1px 1px 0 #000,
+   -1px 1px 0 #000,
+    1px -1px 0 #000,
+   -1px -1px 0 #000;
+}
+
+.right-panel-rs {
+  background: #fff;
+}
+
+.right-panel-rs .title {
+  text-align: center;
+  margin-bottom: 10px;
+  font-weight: bold;
+}
+
+.right-panel-rs p {
+  font-size: 13px;
+  margin-bottom: 25px;
+  color: black;
+}
