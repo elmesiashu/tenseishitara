@@ -184,6 +184,30 @@ section {
     gap: 0.7rem;
 }
 
+/* CART ICON */
+
+.cart-icon {
+  position: relative;
+}
+
+.cart-count {
+  position: absolute;
+  top: -5px;
+  right: -8px;
+  background-color: #ff4444;
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.3);
+}
+
+
 /* -------------------- SEARCH SECTION -------------------- */
 .search-section {
   padding: 2rem;
@@ -474,118 +498,275 @@ section {
 
 /* -------------------- PRODUCT INFO SECTION -------------------- */
 .product-page {
-  margin: 2rem auto;
-}
-
-.btn-back {
-  display: inline-flex;
+  display: flex;
+  justify-content: center;
   align-items: center;
-  margin-bottom: 1rem;
+  padding: 4rem 2rem;
+  background: var(--white-color);
+  transition: background 0.3s ease, color 0.3s ease;
 }
 
-/* Container */
+body.active .product-page {
+  background: #1a1a1a;
+  color: var(--white-color);
+}
+
 .product-container {
   display: flex;
-  flex-wrap: wrap;
-  gap: 2rem;
-  background-color: #fff;
-  padding: 1.5rem;
-  border-radius: 0.8rem;
-  box-shadow: 0 6px 20px rgba(0,0,0,0.05);
+  flex-direction: row;
+  gap: 3rem;
+  max-width: 1100px;
+  width: 100%;
+  background: var(--white-color);
+  border-radius: 1.5rem;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+  padding: 3rem;
+  position: relative;
+  transition: background 0.3s ease, box-shadow 0.3s ease;
 }
 
-/* Left panel */
-.product-image {
-  flex: 1 1 300px;
-  min-width: 280px;
+body.active .product-container {
+  background: #2a2a2a;
+  box-shadow: 0 4px 25px rgba(255,255,255,0.05);
 }
+
+/* ---------- BACK BUTTON ---------- */
+.btn-back {
+  position: absolute;
+  top: 1.5rem;
+  right: 1.5rem;
+  background: none;
+  border: none;
+  color: #29C5F6;
+  font-size: 2.5rem;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.btn-back:hover {
+  transform: rotate(90deg);
+}
+
+/* ---------- IMAGE SECTION ---------- */
+.product-image {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
 .product-image img {
   width: 100%;
-  height: auto;
-  border-radius: 0.6rem;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+  max-width: 420px;
+  border-radius: 1.2rem;
+  object-fit: cover;
+  box-shadow: 0 6px 15px rgba(0,0,0,0.15);
+  transition: transform 0.3s ease, opacity 0.3s ease;
+  opacity: 1;
 }
 
-/* Right panel */
+.product-image img.fade {
+  opacity: 0;
+  transform: scale(0.98);
+}
+
+.product-image img:hover {
+  transform: scale(1.03);
+}
+
+/* ---------- DETAILS SECTION ---------- */
 .product-details {
-  flex: 1 1 300px;
+  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 1rem;
 }
 
 .product-title {
-  font-size: 1.8rem;
-  font-weight: 600;
+  font-size: 2.4rem;
+  font-weight: 700;
+  color: var(--black-color);
+}
+
+body.active .product-title {
+  color: var(--white-color);
+}
+
+.product-category {
+  font-size: 1.4rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  color: #29C5F6;
   margin-bottom: 0.5rem;
 }
 
 .product-description {
-  background-color: #f8f9fa;
-  padding: 1rem;
-  border-radius: 0.5rem;
-  border: 1px solid #e0e0e0;
-  font-size: 0.95rem;
-  color: #333;
+  font-size: 1.5rem;
+  color: var(--black-color);
+  line-height: 1.6;
 }
 
-/* Option circles */
-.option-group {
-  margin-top: 0.8rem;
+body.active .product-description {
+  color: rgba(255,255,255,0.8);
 }
-.option-label {
-  font-weight: 500;
-  margin-bottom: 0.3rem;
-}
-.option-circles {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-.option-circle {
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
-  border: 2px solid #ccc;
-  cursor: pointer;
-  background-size: cover;
-  background-position: center;
+
+/* ---------- PRICE ---------- */
+.price-section {
   display: flex;
   align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-}
-.option-circle.selected {
-  border-color: #007bff;
-  transform: scale(1.1);
-}
-.circle-label {
-  font-size: 0.75rem;
-  color: #333;
-  text-align: center;
+  gap: 10px;
+  margin-top: 0.6rem;
 }
 
-/* Price and stock */
-.price-stock h3, .price-stock h4 {
-  margin: 0.3rem 0;
-}
-.original-price del {
-  color: #888;
-}
 .discounted-price {
-  color: #d9534f;
-  font-weight: 600;
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #e63946;
 }
 
-/* Quantity and Add to Cart */
-.quantity-add {
+.original-price {
+  font-size: 1.5rem;
+  text-decoration: line-through;
+  color: #777;
+}
+
+.discount-badge {
+  background: #e63946;
+  color: #fff;
+  font-size: 0.9rem;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-weight: 600;
+  margin-left: 0.5rem;
+}
+
+/* ---------- OPTIONS (Color, Size, etc.) ---------- */
+.option-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.option-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.option-label {
+  font-weight: 600;
+  font-size: 1.4rem;
+  margin-bottom: 0.2rem;
+  color: var(--black-color);
+}
+
+body.active .option-label {
+  color: var(--white-color);
+}
+
+.option-values {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+}
+
+.option-btn {
+  padding: 0.6rem 1.2rem;
+  border-radius: 9999px;
+  border: 2px solid #ccc;
+  background: #f7f7f7;
+  color: var(--black-color);
+  font-size: 1.4rem;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.option-btn:hover {
+  border-color: #29C5F6;
+  color: #29C5F6;
+}
+
+.option-btn.active {
+  background: #29C5F6;
+  color: #fff;
+  border-color: #29C5F6;
+  box-shadow: 0 0 10px rgba(41,197,246,0.4);
+}
+
+body.active .option-btn {
+  background: #333;
+  border-color: #555;
+  color: #ddd;
+}
+body.active .option-btn.active {
+  background: #29C5F6;
+  color: #fff;
+}
+
+/* ---------- STOCK INFO ---------- */
+.stock {
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: #4CAF50;
+  margin-left: 0.6rem;
+}
+
+.stock.out,
+.stock.out-of-stock {
+  color: #ff4d4d;
+}
+
+/* ---------- QUANTITY ---------- */
+.quantity-section {
   display: flex;
   align-items: center;
   gap: 0.8rem;
+  font-size: 1.7rem;
   margin-top: 1rem;
 }
+
+.quantity-label {
+  font-weight: 600;
+}
+
 .qty-input {
-  width: 60px;
+  width: 70px;
+  height: 35px;
+  border: 1.5px solid #ccc;
+  border-radius: 8px;
+  text-align: center;
+  transition: border 0.2s ease;
+}
+
+.qty-input:focus {
+  border-color: #29C5F6;
+}
+
+body.active .qty-input {
+  border-color: #555;
+  background: #333;
+  color: #fff;
+}
+
+/* ---------- ADD TO CART BUTTON ---------- */
+.btn-add-cart {
+  margin-top: 1.5rem;
+  padding: 1.5rem 10rem;
+  border: none;
+  border-radius: 50px;
+  font-size: 1.5rem;
+  font-weight: 600;
+  background: #29C5F6;
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  align-self: flex-start;
+  box-shadow: 0 4px 12px rgba(41,197,246,0.3);
+}
+
+.btn-add-cart:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 15px rgba(41,197,246,0.4);
 }
 
 

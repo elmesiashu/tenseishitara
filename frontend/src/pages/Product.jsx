@@ -1,153 +1,222 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
 import { useParams, useNavigate } from "react-router-dom";
-import { FaArrowLeft } from "react-icons/fa";
 
-function getImageUrl(filename) {
-  if (!filename) return null;
-  return `http://localhost:5000${filename.startsWith("/uploads/") ? filename : `/uploads/${filename}`}`;
-}
-
-export default function Product({ cart, setCart }) {
+export default function Product({ addToCart, siteDiscount }) {
   const { id } = useParams();
   const navigate = useNavigate();
   const [product, setProduct] = useState(null);
-  const [options, setOptions] = useState([]);
+  const [categoryName, setCategoryName] = useState("");
+  const [options, setOptions] = useState({});
+  const [selectedImage, setSelectedImage] = useState("");
+  const [imageFade, setImageFade] = useState(false);
   const [selectedOptions, setSelectedOptions] = useState({});
-  const [selectedImage, setSelectedImage] = useState(null);
+  const [selectedPreview, setSelectedPreview] = useState(null);
   const [quantity, setQuantity] = useState(1);
-  const discount = 0.3;
+  const [loading, setLoading] = useState(true);
+  const [setAddedMessage] = useState("");
 
+  // Load discount
+  const [discount, setDiscount] = useState(() => {
+    const stored = sessionStorage.getItem("siteDiscount");
+    return siteDiscount ?? (stored ? parseInt(stored) : 0);
+  });
+
+  //  Sync prop discount if it changes
   useEffect(() => {
-    axios
-      .get(`http://localhost:5000/api/products/${id}`)
-      .then((res) => {
-        const prod = res.data.product;
-        setProduct(prod);
-        setOptions(res.data.options || []);
-        setSelectedImage(prod.productImage);
+    if (siteDiscount && siteDiscount !== discount) {
+      setDiscount(siteDiscount);
+      sessionStorage.setItem("siteDiscount", siteDiscount);
+    }
+  }, [siteDiscount]);
 
-        // Initialize options with the first value for each group
-        const initialSelections = {};
-        res.data.options?.forEach((opt) => {
-          if (!initialSelections[opt.optionName]) {
-            initialSelections[opt.optionName] = opt.optionValue;
-            if (opt.preview) setSelectedImage(opt.preview);
-          }
+  // Fetch product data
+  useEffect(() => {
+    const fetchProduct = async () => {
+      try {
+        const res = await fetch(`http://localhost:5000/api/products/${id}`);
+        if (!res.ok) throw new Error("Failed to fetch product");
+        const data = await res.json();
+        const productData = data.product || data;
+        const optionData = data.options || [];
+
+        // Group options
+        const grouped = optionData.reduce((acc, opt) => {
+          if (!acc[opt.optionName]) acc[opt.optionName] = [];
+          acc[opt.optionName].push(opt);
+          return acc;
+        }, {});
+
+        const fixedOptions = {};
+        Object.keys(grouped).forEach((key) => {
+          fixedOptions[key] = grouped[key].map((opt) => ({
+            ...opt, preview: opt.preview ? `http://localhost:5000${opt.preview}`: "/placeholder.png",
+          }));
         });
-        setSelectedOptions(initialSelections);
-      })
-      .catch((err) => console.error(err));
-  }, [id]);
 
-  const handleAddToCart = () => {
-    if (!cart || !product) return;
-
-    const item = {
-      productID: product.productID,
-      name: product.productTitle,
-      price: product.listPrice * (1 - discount),
-      qty: quantity,
-      stock: product.stock,
-      pic: selectedImage || product.productImage,
-      options: selectedOptions,
+        setProduct(productData);
+        setOptions(fixedOptions);
+        setCategoryName(productData.categoryName || "Unknown Category");
+        setSelectedImage(
+          productData.productImage ? `http://localhost:5000${productData.productImage}`: "/placeholder.png"
+        );
+        setLoading(false);
+      } catch (err) {
+        console.error("Error fetching product:", err);
+        setLoading(false);
+      }
     };
 
-    const index = cart.findIndex(
-      (i) =>
-        i.productID === item.productID &&
-        JSON.stringify(i.options) === JSON.stringify(item.options)
-    );
+    fetchProduct();
+  }, [id]);
 
-    if (index !== -1) {
-      const updatedCart = [...cart];
-      updatedCart[index].qty += quantity;
-      setCart(updatedCart);
-    } else {
-      setCart([...cart, item]);
+  if (loading) return <div className="loading">Loading...</div>;
+  if (!product) return <div className="error">Product not found</div>;
+
+  // Option selection
+  const handleOptionChange = (optionName, optionValue, preview, isDefault = false) => {
+    if (isDefault) {
+      setSelectedOptions((prev) => {
+        const updated = { ...prev };
+        delete updated[optionName];
+        return updated;
+      });
+      setSelectedPreview(null);
+      setImageFade(true);
+      setTimeout(() => {
+        setSelectedImage(`http://localhost:5000${product.productImage}`);
+        setImageFade(false);
+      }, 200);
+      return;
+    }
+
+    setSelectedOptions((prev) => ({ ...prev, [optionName]: optionValue }));
+    setSelectedPreview(preview);
+
+    if (preview) {
+      setImageFade(true);
+      setTimeout(() => { setSelectedImage(preview);
+        setImageFade(false);
+      }, 200);
     }
   };
 
-  const handleOptionChange = (optionName, value, preview = null) => {
-    setSelectedOptions((prev) => ({ ...prev, [optionName]: value }));
-    if (preview) setSelectedImage(preview);
-    else setSelectedImage(product.productImage);
+  // Add to cart
+  const handleAddToCart = () => {
+    const hasOptions = Object.keys(selectedOptions).length > 0;
+    const optionKey = hasOptions ? Object.entries(selectedOptions).map(([k, v]) => `${k}:${v}`).sort().join("|") : "default";
+
+    const cartItem = {
+      id: product.productID,
+      name: product.productTitle,
+      price: parseFloat(product.listPrice) || 0,
+      qty: parseInt(quantity) || 1,
+      stock: product.stock,
+      pic: selectedPreview ? selectedPreview.replace("http://localhost:5000", "") : product.productImage,
+      optionKey, ...(hasOptions && {
+        optionName: Object.keys(selectedOptions).join(", "),
+        optionValue: Object.values(selectedOptions).join(", "),
+      }),
+    };
+
+    addToCart(cartItem);
+    setAddedMessage("Added to cart ✓");
+    setTimeout(() => setAddedMessage(""), 1500);
   };
 
-  if (!product) return <div>Loading...</div>;
-
-  const groupedOptions = options.reduce((acc, opt) => {
-    if (!acc[opt.optionName]) acc[opt.optionName] = [];
-    acc[opt.optionName].push(opt);
-    return acc;
-  }, {});
+  const originalPrice = parseFloat(product.listPrice) || 0;
+  const discountedPrice = (originalPrice * (1 - discount / 100)).toFixed(2);
 
   return (
-    <div className="product-page container">
-      <button className="btn btn-secondary btn-back" onClick={() => navigate(-1)}>
-        <FaArrowLeft /> Back
-      </button>
-
+    <section className="product-page">
       <div className="product-container">
-        {/* Left panel - image */}
+        <button className="btn-back" onClick={() => navigate(-1)}>✕</button>
+
+        {/* Image */}
         <div className="product-image">
-          <img src={getImageUrl(selectedImage)} alt={product.productTitle} />
+          <img src={selectedImage} alt={product.productTitle}
+            className={`fade-image ${imageFade ? "fade" : ""}`}
+            onError={(e) => (e.target.src = "/placeholder.png")}/>
         </div>
 
-        {/* Right panel - details */}
+        {/* Details */}
         <div className="product-details">
-          <h1 className="product-title">{product.productTitle}</h1>
+          <h1 className="product-title">
+            {product.productTitle}
+            <br />
+            <span className="product-category"> {categoryName} </span>
+          </h1>
 
-          <div className="product-description">
-            <p>{product.productDescription}</p>
+          {/* Price Section */}
+          <div className="price-section">
+            <p>
+            <span className="discounted-price"> ${discountedPrice}  </span>
+            <span className="discount-badge"> -{discount}% </span>
+            <br />
+            <span className="original-price"> Price: ${originalPrice.toFixed(2)} </span>
+            </p>
           </div>
+
+          <p className="product-description">
+            {product.productDescription || "No description available."}
+          </p>
 
           {/* Options */}
-          {Object.keys(groupedOptions).length > 0 &&
-            Object.keys(groupedOptions).map((optName, idx) => (
-              <div key={idx} className="option-group">
-                <p className="option-label">{optName}:</p>
-                <div className="option-circles">
-                  {groupedOptions[optName].map((opt, i) => (
-                    <div
-                      key={i}
-                      className={`option-circle ${selectedOptions[optName] === opt.optionValue ? "selected" : ""}`}
-                      style={{
-                        backgroundImage: opt.preview ? `url(${getImageUrl(opt.preview)})` : "none",
-                        backgroundColor: !opt.preview ? opt.optionValue.toLowerCase() : "transparent",
-                      }}
-                      onClick={() => handleOptionChange(optName, opt.optionValue, opt.preview)}
-                      title={opt.optionValue}
-                    >
-                      {!opt.preview && <span className="circle-label">{opt.optionValue}</span>}
-                    </div>
-                  ))}
+          {Object.keys(options).length > 0 && (
+            <div className="option-section">
+              {Object.keys(options).map((optionName) => (
+                <div key={optionName} className="option-group">
+                  <span className="option-label">{optionName}</span>
+                  <div className="option-values">
+                    <button className={`option-btn ${
+                        !selectedOptions[optionName] ? "active" : "" 
+                      }`}
+                      onClick={() =>
+                        handleOptionChange(optionName, null, null, true)
+                      }
+                    > Default </button>
+
+                    {options[optionName].map((opt, idx) => (
+                      <button key={idx}
+                        className={`option-btn ${
+                          selectedOptions[optionName] === opt.optionValue
+                            ? "active" : ""
+                        }`}
+                        onClick={() =>
+                          handleOptionChange(
+                            optionName,
+                            opt.optionValue,
+                            opt.preview
+                          )
+                        }> {opt.optionValue} </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
+          )}
 
-          <div className="price-stock">
-            <h3 className="original-price">Original: <del>${product.listPrice}</del></h3>
-            <h3 className="discounted-price">Discounted: ${(product.listPrice * (1 - discount)).toFixed(2)}</h3>
-            <h4 className="stock">Available Stock: {product.stock}</h4>
+          {/* Stock x Quantity */}
+          <div className="quantity-section">
+            <p>
+              <span>Quantity: </span>
+              <input type="number" min="1" max={product.stock}
+                value={quantity} onChange={(e) =>
+                setQuantity(Math.max(1, Math.min(product.stock, e.target.value))) }/>
+               <span className={`stock ${ product.stock > 0 ? "in-stock" : "out-of-stock"  }`}> 
+              {product.stock > 0 ? `In Stock: ${product.stock}`: "Out of Stock"} </span>
+            </p>
           </div>
 
-          <div className="quantity-add">
-            <label>Qty:</label>
-            <input
-              type="number"
-              className="form-control qty-input"
-              value={quantity}
-              min={1}
-              max={product.stock}
-              onChange={(e) => setQuantity(parseInt(e.target.value))}
-            />
-            <button className="btn btn-primary btn-add-cart" onClick={handleAddToCart}>
-              Add to Cart
-            </button>
-          </div>
+          {/* Add to Cart */}
+          <button
+            className="btn-add-cart"
+            disabled={product.stock === 0}
+            onClick={handleAddToCart}
+          >
+            Add To Cart
+          </button>
         </div>
       </div>
-    </div>
+    </section>
   );
 }

@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const fs = require("fs");
 const path = require("path");
-const db = require("../db"); // MySQL connection
+const db = require("../db");
 const multer = require("multer");
 
 // ----------------- Upload folder -----------------
@@ -20,7 +20,7 @@ const upload = multer({ storage });
 // Accept multiple fields: main image + option images
 const cpUpload = upload.fields([
   { name: "productImage", maxCount: 1 },
-  { name: "optionImage", maxCount: 20 }, // max number of option images
+  { name: "optionImage", maxCount: 20 },
 ]);
 
 // ----------------- SKU generator -----------------
@@ -31,7 +31,7 @@ function generateSKU() {
   return sku;
 }
 
-// ----------------- GET products -----------------
+// ----------------- GET all products -----------------
 router.get("/", async (req, res) => {
   const keyword = req.query.keyword || "";
   const discount = 0.3;
@@ -52,9 +52,9 @@ router.get("/", async (req, res) => {
 
     const products = rows.map((p) => ({
       ...p,
-      productImage: p.productImage ? `/uploads/${p.productImage}` : null, // Full path for frontend
+      productImage: p.productImage ? `/uploads/${p.productImage}` : null,
       discountedPrice: (p.listPrice * (1 - discount)).toFixed(2),
-      hasOptions: !!p.hasOptions, // Convert from 0/1 to boolean
+      hasOptions: !!p.hasOptions,
     }));
 
     res.json(products);
@@ -66,10 +66,6 @@ router.get("/", async (req, res) => {
 
 // ----------------- UPLOAD product -----------------
 router.post("/upload", cpUpload, async (req, res) => {
-  console.log("=== /upload route HIT ===");
-  console.log("req.body:", req.body);
-  console.log("req.files:", req.files);
-
   try {
     const { productTitle, anime, productDescription, listPrice, stock, category, options } = req.body;
 
@@ -79,7 +75,6 @@ router.post("/upload", cpUpload, async (req, res) => {
     const sku = generateSKU();
     const filename = req.files.productImage[0].filename;
 
-    // Insert product
     const [result] = await db.query(
       `INSERT INTO product
        (productSKU, productTitle, anime, productDescription, listPrice, stock, categoryID, productImage)
@@ -89,7 +84,7 @@ router.post("/upload", cpUpload, async (req, res) => {
 
     const productID = result.insertId;
 
-    // Insert product options with images
+    // Insert product options
     const optionsArray = options ? JSON.parse(options) : [];
     if (req.files.optionImage) {
       req.files.optionImage.forEach((file, idx) => {
@@ -123,79 +118,11 @@ router.delete("/:id", async (req, res) => {
   }
 });
 
-
-// ----------------- GET bundle packages -----------------
-router.get("/packages", async (req, res) => {
-  try {
-    const [rows] = await db.query(
-      `SELECT 
-         p.productID, p.productTitle, p.listPrice, p.productImage,
-         a.animeID, a.animeName
-       FROM product AS p
-       INNER JOIN anime AS a ON p.anime = a.animeID`
-    );
-
-    // Group by anime
-    const animeGroups = {};
-    rows.forEach((p) => {
-      if (!animeGroups[p.animeID]) animeGroups[p.animeID] = [];
-      animeGroups[p.animeID].push(p);
-    });
-
-    // Build bundles
-    const packages = [];
-    Object.keys(animeGroups).forEach((animeId) => {
-      const group = animeGroups[animeId];
-
-      const hoodie = group.find((g) =>
-        g.productTitle.toLowerCase().includes("hoodie")
-      );
-      const tshirt = group.find((g) =>
-        g.productTitle.toLowerCase().includes("t-shirt") ||
-        g.productTitle.toLowerCase().includes("tshirt")
-      );
-      const pants = group.find((g) =>
-        g.productTitle.toLowerCase().includes("pants")
-      );
-
-      if (hoodie && tshirt && pants) {
-        const total =
-          parseFloat(hoodie.listPrice) +
-          parseFloat(tshirt.listPrice) +
-          parseFloat(pants.listPrice);
-
-        const discountRate = 0.15; // 15% package discount
-        const discount = total * discountRate;
-        const bundlePrice = (total - discount).toFixed(2);
-
-        packages.push({
-          animeId,
-          animeName: hoodie.productTitle.split(" ")[0], // crude way to extract anime name
-          items: [hoodie, tshirt, pants],
-          price: bundlePrice,
-          original: total.toFixed(2),
-          discountPercent: discountRate * 100,
-          image: hoodie.productImage
-            ? `/uploads/${hoodie.productImage}`
-            : "/uploads/default.png",
-        });
-      }
-    });
-
-    res.json(packages);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Server error" });
-  }
-});
-
-// ----------------- GET categories with random product image -----------------
+// ----------------- GET categories with image -----------------
 router.get("/categories-with-image", async (req, res) => {
   try {
-    // 1. Get all categories
     const [categories] = await db.query("SELECT categoryID, categoryName FROM category");
 
-    // 2. For each category, get one random product image
     const categoriesWithImages = await Promise.all(
       categories.map(async (cat) => {
         const [products] = await db.query(
@@ -205,12 +132,9 @@ router.get("/categories-with-image", async (req, res) => {
 
         const productImage = products[0]?.productImage
           ? `/uploads/${products[0].productImage}`
-          : "/uploads/default.png"; // fallback image
+          : "/uploads/default.png";
 
-        return {
-          ...cat,
-          productImage
-        };
+        return { ...cat, productImage };
       })
     );
 
@@ -224,13 +148,16 @@ router.get("/categories-with-image", async (req, res) => {
 // ----------------- GET single product by ID -----------------
 router.get("/:id", async (req, res) => {
   const productID = req.params.id;
-  const discount = 0.3; // 30% off
+  const discount = 0.3;
 
   try {
-    // Fetch product info
     const [products] = await db.query(
-      `SELECT productID, productTitle, productDescription, listPrice, stock, productImage 
-       FROM product WHERE productID = ?`,
+      `SELECT 
+         p.productID, p.productTitle, p.productDescription, p.listPrice, p.stock, p.productImage,
+         c.categoryID, c.categoryName
+       FROM product AS p
+       INNER JOIN category AS c ON p.categoryID = c.categoryID
+       WHERE p.productID = ?`,
       [productID]
     );
 
@@ -242,23 +169,114 @@ router.get("/:id", async (req, res) => {
     product.productImage = product.productImage ? `/uploads/${product.productImage}` : null;
     product.discountedPrice = (product.listPrice * (1 - discount)).toFixed(2);
 
-    // Fetch options for this product
+    // Fetch options
     const [optionsRows] = await db.query(
       `SELECT optionName, optionValue, optionImage FROM product_options WHERE productID = ?`,
       [productID]
     );
 
-    const options = optionsRows.map(opt => ({
+    const options = optionsRows.map((opt) => ({
       optionName: opt.optionName,
       optionValue: opt.optionValue,
-      preview: opt.optionImage ? `/uploads/${opt.optionImage}` : null
+      preview: opt.optionImage ? `/uploads/${opt.optionImage}` : null,
     }));
 
     res.json({ product, options });
+  } catch (err) {
+    console.error("Error fetching product:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// ----------------- GET products by category -----------------
+router.get("/category/:categoryID", async (req, res) => {
+  const { categoryID } = req.params;
+  const discount = 0.3;
+
+  try {
+    const [rows] = await db.query(
+      `SELECT 
+         p.productID, p.productTitle, p.productDescription, p.listPrice, p.stock, p.productImage,
+         c.categoryID, c.categoryName
+       FROM product AS p
+       INNER JOIN category AS c ON p.categoryID = c.categoryID
+       WHERE c.categoryID = ?`,
+      [categoryID]
+    );
+
+    const products = rows.map((p) => ({
+      ...p,
+      productImage: p.productImage ? `/uploads/${p.productImage}` : null,
+      discountedPrice: (p.listPrice * (1 - discount)).toFixed(2),
+    }));
+
+    res.json(products);
+  } catch (err) {
+    console.error("Error fetching products by category:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// ----------------- GET bundle packages -----------------
+router.get("/packages", async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+      SELECT 
+        p.productID, p.productTitle, p.listPrice, p.productImage,
+        a.animeID, a.animeName
+      FROM product AS p
+      INNER JOIN anime AS a ON p.anime = a.animeID
+    `);
+
+    // Group by anime
+    const animeGroups = {};
+    for (const p of rows) {
+      if (!animeGroups[p.animeID]) animeGroups[p.animeID] = [];
+      animeGroups[p.animeID].push(p);
+    }
+
+    const packages = [];
+
+    for (const animeID in animeGroups) {
+      const group = animeGroups[animeID];
+
+      // Only create bundle if at least 2 items exist for that anime
+      if (group.length >= 2) {
+        // Limit to a max of 3–4 items per bundle for visual clarity
+        const selectedItems = group.slice(0, 3);
+
+        const total = selectedItems.reduce(
+          (sum, item) => sum + parseFloat(item.listPrice || 0),
+          0
+        );
+
+        const discountRate = 0.15; // 15% off bundle
+        const discountedPrice = +(total * (1 - discountRate)).toFixed(2);
+
+        // Use the first available product image
+        const mainImage =
+          selectedItems.find((i) => i.productImage)?.productImage ||
+          "default.png";
+
+        packages.push({
+          animeID: parseInt(animeID),
+          animeName: selectedItems[0].animeName,
+          items: selectedItems,
+          price: discountedPrice,
+          original: +total.toFixed(2),
+          discountPercent: Math.round(discountRate * 100),
+          image: `/uploads/${mainImage}`,
+        });
+      }
+    }
+
+    res.json(packages);
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });
   }
 });
+
+
 
 module.exports = router;

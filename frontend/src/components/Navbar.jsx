@@ -10,62 +10,71 @@ import {
   BsBarChartFill,
   BsReceipt,
   BsJustify,
+  BsPeople,
+  BsGearFill,
+  BsStarFill,
+  BsGift,
 } from "react-icons/bs";
 import { Link } from "react-router-dom";
 
-export default function Navbar({ user, logout }) {
+export default function Navbar({ user, logout, cart = [] }) {
   const [darkMode, setDarkMode] = useState(false);
-  const [productToggle, setProductToggle] = useState(false);
   const [menuSlide, setMenuSlide] = useState(false);
 
-  const handleDarkModeToggle = () => setDarkMode(!darkMode);
+  const handleDarkModeToggle = () => setDarkMode((prev) => !prev);
 
+  // ✅ Load CSS dynamically based on user type
   useEffect(() => {
-    if (user?.isAdmin === 1) {
+    if (user?.isAdmin) {
       import("../css/admin.css");
     } else {
       import("../App.css");
     }
   }, [user]);
 
+  // ✅ Toggle dark mode class on body
   useEffect(() => {
-    if (darkMode) document.body.classList.add("active");
-    else document.body.classList.remove("active");
+    document.body.classList.toggle("active", darkMode);
   }, [darkMode]);
 
+  const cartCount = cart.reduce((sum, item) => sum + (item.qty || 1), 0);
+
   // ---------------- ADMIN NAVBAR ----------------
-  if (user?.isAdmin === 1) {
+  if (user?.isAdmin) {
     return (
       <>
-        <header className="header">
+        <header className="header admin-header">
           <section className="flex">
-            <Link to="/" className="logo">
-              Tensei Shitara<span>.</span>
+            <Link to="/admin/dashboard" className="logo">
+              Admin Panel<span>.</span>
             </Link>
 
             <form action="/search" method="GET">
-              <input type="text" name="keyword" placeholder="Search..." />
+              <input type="text" name="keyword" placeholder="Search products..." />
               <button type="submit">
                 <BsSearch />
               </button>
             </form>
 
             <div className="icons">
-              <div className="icon-wrapper">
-                <Link to="/admin/dashboard" title="Dashboard">
+              <div className="icon-wrapper" title="Dashboard">
+                <Link to="/admin/dashboard">
                   <BsServer />
                 </Link>
               </div>
-              <div className="icon-wrapper">
-                <Link to="/" title="Invoices">
-                  <BsReceipt />
+
+              <div className="icon-wrapper" title="Products">
+                <Link to="/admin/products">
+                  <BsJournal />
                 </Link>
               </div>
-              <div className="icon-wrapper">
-                <Link to="/" title="Reports">
+
+              <div className="icon-wrapper" title="Reports">
+                <Link to="/admin/reports">
                   <BsBarChartFill />
                 </Link>
               </div>
+
               <div
                 className="icon-wrapper"
                 title="Toggle Theme"
@@ -73,6 +82,7 @@ export default function Navbar({ user, logout }) {
               >
                 <BsFillMoonFill />
               </div>
+
               <div
                 className="icon-wrapper"
                 onClick={() => setMenuSlide(!menuSlide)}
@@ -94,7 +104,7 @@ export default function Navbar({ user, logout }) {
               alt="user"
               className="rounded-circle"
             />
-            <h5>{user?.fname || "Guest"}</h5>
+            <h5>{user?.fname || "Admin"}</h5>
           </div>
 
           <div className="links text-center">
@@ -104,24 +114,25 @@ export default function Navbar({ user, logout }) {
             <Link to="/admin/products" className="nav-link">
               Products
             </Link>
-            <Link to="/" className="nav-link">
+            <Link to="/admin/orders" className="nav-link">
               Orders
             </Link>
-            <Link to="/" className="nav-link">
-              User
+            <Link to="/admin/users" className="nav-link">
+              Users
             </Link>
-            <Link to="/" className="nav-link">
+            <Link to="/admin/reviews" className="nav-link">
               Reviews
             </Link>
-            <Link to="/" className="nav-link">
+            <Link to="/admin/promotions" className="nav-link">
               Promotions
             </Link>
-            <Link to="/" className="nav-link">
+            <Link to="/admin/reports" className="nav-link">
               Reports
             </Link>
-            <Link to="/" className="nav-link">
+            <Link to="/admin/settings" className="nav-link">
               Settings
             </Link>
+
             {user ? (
               <button className="btn btn-danger mt-3" onClick={logout}>
                 Logout
@@ -133,7 +144,11 @@ export default function Navbar({ user, logout }) {
             )}
           </div>
 
-          <div id="close" className="close-icon" onClick={() => setMenuSlide(false)}>
+          <div
+            id="close"
+            className="close-icon"
+            onClick={() => setMenuSlide(false)}
+          >
             <FaTimes />
           </div>
         </nav>
@@ -141,7 +156,7 @@ export default function Navbar({ user, logout }) {
     );
   }
 
-  // ---------------- DEFAULT USER NAVBAR ----------------
+  // ---------------- USER NAVBAR ----------------
   return (
     <>
       <header className="header">
@@ -158,43 +173,42 @@ export default function Navbar({ user, logout }) {
           </form>
 
           <div className="icons">
-            {/* Home Icon */}
             <div className="icon-wrapper">
               <Link to="/" title="Home">
-                <BsHouseFill className="rotating-icons" />
+                <BsHouseFill />
               </Link>
             </div>
 
-              {/* Icon wrapper */}
-              <div className="icon-wrapper" title="Products">
-                <BsJournal className="rotating-icon" />
-              </div>
-
-            {/* Cart Icon */}
             <div className="icon-wrapper">
-              <Link to="/cart" title="Cart">
-                <BsBasket className="rotating-icons" />
+              <Link to="/search" title="Products">
+                <BsJournal />
               </Link>
             </div>
 
-            {/* Dark Mode */}
+            <div className="icon-wrapper cart-icon">
+              <Link to="/cart" title="Cart" className="cart-link">
+                <BsBasket />
+                {cartCount > 0 && (
+                  <span className="cart-count">{cartCount}</span>
+                )}
+              </Link>
+            </div>
+
             <div
               className="icon-wrapper"
               title="Toggle Theme"
               onClick={handleDarkModeToggle}
             >
-              <BsFillMoonFill className="rotating-icon" />
+              <BsFillMoonFill />
             </div>
 
-            {/* Menu Slide */}
             <div
               className="icon-wrapper"
               onClick={() => setMenuSlide(!menuSlide)}
             >
-              <BsJustify className="rotating-icon" />
+              <BsJustify />
             </div>
           </div>
-
         </section>
       </header>
 
@@ -216,16 +230,31 @@ export default function Navbar({ user, logout }) {
           <Link to="/" className="nav-link">
             Home
           </Link>
-          <Link to="/" className="nav-link">
-            Dashboard
+          <Link to="/search" className="nav-link">
+            Anime Series
           </Link>
-          <Link to="/" className="nav-link">
-            Product Information
+          <Link to="/contact" className="nav-link">
+            Contact Us
           </Link>
+
           {user ? (
-            <button className="btn btn-danger mt-3" onClick={logout}>
-              Logout
-            </button>
+            <>
+              <Link to="/order" className="nav-link">
+                Order History
+              </Link>
+              <Link to="/payment" className="nav-link">
+                Payment
+              </Link>
+              <Link to="/account" className="nav-link">
+                Account
+              </Link>
+              <Link to="/settings" className="nav-link">
+                Settings
+              </Link>
+              <button className="btn btn-danger mt-3" onClick={logout}>
+                Logout
+              </button>
+            </>
           ) : (
             <Link to="/login" className="btn btn-primary mt-3">
               Login
@@ -233,7 +262,11 @@ export default function Navbar({ user, logout }) {
           )}
         </div>
 
-        <div id="close" className="close-icon" onClick={() => setMenuSlide(false)}>
+        <div
+          id="close"
+          className="close-icon"
+          onClick={() => setMenuSlide(false)}
+        >
           <FaTimes />
         </div>
       </nav>

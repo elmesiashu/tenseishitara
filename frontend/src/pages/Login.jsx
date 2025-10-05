@@ -1,20 +1,24 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import axios from 'axios';
-import '../css/auth.css';
+import React, { useState } from "react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
+import axios from "axios";
+import "../css/auth.css";
 
-const API = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+const API = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
 export default function Login({ setUser }) {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Capture where the user came from (so we can redirect them back)
+  const from = location.state?.from?.pathname || "/";
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    setError('');
+    setError("");
 
     try {
       const res = await axios.post(
@@ -27,45 +31,60 @@ export default function Login({ setUser }) {
         const user = res.data.user;
         setUser(user);
 
-        // Merge session cart to backend
-        const sessionCart = JSON.parse(sessionStorage.getItem('cart')) || [];
+        // ✅ Merge session cart (if any)
+        const sessionCart = JSON.parse(sessionStorage.getItem("cart")) || [];
         if (sessionCart.length > 0) {
           await Promise.all(
-            sessionCart.map(item =>
+            sessionCart.map((item) =>
               axios.post(
                 `${API}/api/cart`,
-                { productID: item.productID, quantity: item.quantity, price: item.price },
+                {
+                  productID: item.productID,
+                  quantity: item.quantity,
+                  price: item.price,
+                },
                 { withCredentials: true }
               )
             )
           );
-          sessionStorage.removeItem('cart');
+          sessionStorage.removeItem("cart");
         }
 
-        if (remember) localStorage.setItem('user', JSON.stringify(user));
+        // ✅ Remember user if chosen
+        if (remember) localStorage.setItem("user", JSON.stringify(user));
 
-        if (user.isAdmin) navigate('../admin/dashboard');
-        else navigate('/');
+        // ✅ Redirect logic
+        if (user.isAdmin) {
+          // If came from a specific admin route, go back there; else dashboard
+          const adminRedirect =
+            from.startsWith("/admin/") && from !== "/login"
+              ? from
+              : "/admin/dashboard";
+          navigate(adminRedirect, { replace: true });
+        } else {
+          // Regular user — go back to last page or home
+          navigate(from !== "/login" ? from : "/", { replace: true });
+        }
       }
     } catch (err) {
-      setError(err.response?.data?.error || 'Login failed');
+      setError(err.response?.data?.error || "Login failed. Please try again.");
     }
   };
 
   return (
-    <div className="auth-wrapper" style={{ position: 'relative' }}>
-      {/* X button at top-right of viewport */}
+    <div className="auth-wrapper" style={{ position: "relative" }}>
+      {/* Close (X) button */}
       <button
-        onClick={() => navigate('/')}
+        onClick={() => navigate("/")}
         style={{
-          position: 'fixed',
-          top: '20px',
-          right: '20px',
-          border: 'none',
-          background: 'transparent',
-          fontSize: '2rem',
-          cursor: 'pointer',
-          zIndex: 1000
+          position: "fixed",
+          top: "20px",
+          right: "20px",
+          border: "none",
+          background: "transparent",
+          fontSize: "2rem",
+          cursor: "pointer",
+          zIndex: 1000,
         }}
         aria-label="Close"
       >
@@ -75,6 +94,7 @@ export default function Login({ setUser }) {
       <div className="left-panel">
         <h2 className="title">Login here</h2>
         {error && <div className="error">{error}</div>}
+
         <form onSubmit={handleLogin}>
           <div className="field">
             <input
@@ -85,6 +105,7 @@ export default function Login({ setUser }) {
             />
             <label>Username</label>
           </div>
+
           <div className="field">
             <input
               type="password"
@@ -94,6 +115,7 @@ export default function Login({ setUser }) {
             />
             <label>Password</label>
           </div>
+
           <div className="field remember-forgot">
             <div>
               <input
@@ -104,12 +126,16 @@ export default function Login({ setUser }) {
               />
               <label htmlFor="remember">Remember me</label>
             </div>
-            <Link to="/forgot-password" className="forgot">Forgot password?</Link>
+            <Link to="/forgot-password" className="forgot">
+              Forgot password?
+            </Link>
           </div>
+
           <div className="field">
             <input type="submit" value="Login" />
           </div>
         </form>
+
         <div className="social-login">
           <span>or use your account</span>
           <div className="social-icons">
@@ -123,7 +149,9 @@ export default function Login({ setUser }) {
       <div className="right-panel">
         <h2>Start your anime shop now</h2>
         <p>If you don’t have an account yet, join us and start your journey</p>
-        <Link to="/register" className="btn-register">Register</Link>
+        <Link to="/register" className="btn-register">
+          Register
+        </Link>
       </div>
     </div>
   );

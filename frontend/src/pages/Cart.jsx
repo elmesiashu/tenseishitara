@@ -3,9 +3,19 @@ import { useNavigate } from "react-router-dom";
 
 function getImageUrl(filename) {
   if (!filename) return null;
+  // accept full urls and several backend path shapes
+  if (typeof filename === "string" && filename.startsWith("http")) return filename;
   return `http://localhost:5000${
     filename.startsWith("/uploads/") ? filename : `/uploads/${filename}`
   }`;
+}
+
+// create a stable cart-key for a product + option combination
+function makeItemKey(item) {
+  const pid = item.id ?? item.productID ?? item.productId ?? item.productid ?? item.productID;
+  const optionName = item.optionName ?? "default";
+  const optionValue = item.optionValue ?? "default";
+  return `${pid}-${optionName}-${optionValue}`;
 }
 
 export default function Cart({
@@ -15,36 +25,67 @@ export default function Cart({
   siteDiscount = 0,
 }) {
   const navigate = useNavigate();
-  const [cart, updateCart] = useState(initialCart);
+  const [cart, updateCart] = useState([]);
   const [error, setError] = useState("");
   const [totals, setTotals] = useState({ price: 0, tax: 0, total: 0 });
   const TAX_RATE = 0.12;
 
-  useEffect(() => updateCart(initialCart), [initialCart]);
+  // Normalize incoming cart once whenever initialCart changes.
+  // We DO NOT call setCart here to avoid loops — parent already owns the source of truth.
+  useEffect(() => {
+    const normalized = initialCart.map((it) => {
+      const item = { ...it };
+      // ensure numeric price and qty
+      item.price = typeof item.price === "string" ? parseFloat(item.price) || 0 : item.price ?? 0;
+      item.qty = Number.isFinite(item.qty) ? item.qty : parseInt(item.qty) || 1;
+      // unify id fields
+      item.id = item.id ?? item.productID ?? item.productId;
+      // ensure stock exists
+      item.stock = item.stock ?? 9999;
+      // ensure a stable key
+      item.key = item.key ?? makeItemKey(item);
+      return item;
+    });
 
+    updateCart(normalized);
+  }, [initialCart]);
+
+  // Recompute totals when local cart changes
   useEffect(() => {
     let subtotal = 0;
-    cart.forEach((item) => {
-      const discounted = item.price * (1 - siteDiscount / 100);
-      subtotal += discounted * item.qty;
-    });
+    for (const item of cart) {
+      const price = Number(item.price) || 0;
+      const discounted = price * (1 - (Number(siteDiscount) || 0) / 100);
+      subtotal += discounted * (Number(item.qty) || 0);
+    }
     const tax = subtotal * TAX_RATE;
     setTotals({ price: subtotal, tax, total: subtotal + tax });
   }, [cart, siteDiscount]);
 
-  const handleRemove = (index) => {
-    const updated = [...cart];
-    updated.splice(index, 1);
-    updateCart(updated);
-    setCart(updated);
+  // Remove by stable key — update both local and parent state
+  const handleRemove = (key) => {
+    setCart((prev) => {
+      const updated = prev.filter((it) => (it.key ?? makeItemKey(it)) !== key);
+      updateCart(updated);
+      return updated;
+    });
   };
 
-  const handleQuantityChange = (index, qty) => {
-    if (qty < 1) return;
-    const updated = [...cart];
-    updated[index].qty = qty;
-    updateCart(updated);
-    setCart(updated);
+  // Quantity change by key (clamped between 1 and stock)
+  const handleQuantityChange = (key, qty) => {
+    const q = Number(qty) || 1;
+    setCart((prev) => {
+      const updated = prev.map((it) => {
+        const itKey = it.key ?? makeItemKey(it);
+        if (itKey === key) {
+          const clamped = Math.max(1, Math.min(it.stock ?? 9999, q));
+          return { ...it, qty: clamped, key: it.key ?? itKey };
+        }
+        return it;
+      });
+      updateCart(updated);
+      return updated;
+    });
   };
 
   const handleCheckout = () => {
@@ -55,7 +96,7 @@ export default function Cart({
     navigate("/checkout");
   };
 
-  if (cart.length === 0) {
+  if (!cart || cart.length === 0) {
     return (
       <section className="cart-section">
         <h2 className="heading">
@@ -79,7 +120,7 @@ export default function Cart({
       {error && <div className="alert alert-danger text-center">{error}</div>}
 
       <div className="cart-container">
-        {/* ---------- CART TABLE ---------- */}
+        {/* Cart Table */}
         <div className="cart-table-wrapper">
           <table className="cart-table">
             <thead>
@@ -92,11 +133,12 @@ export default function Cart({
               </tr>
             </thead>
             <tbody>
-              {cart.map((item, index) => {
-                const discounted = item.price * (1 - siteDiscount / 100);
-                const totalPrice = discounted * item.qty;
+              {cart.map((item) => {
+                const discounted = (Number(item.price) || 0) * (1 - (Number(siteDiscount) || 0) / 100);
+                const totalPrice = discounted * (Number(item.qty) || 0);
+                const key = item.key ?? makeItemKey(item);
                 return (
-                  <tr key={index}>
+                  <tr key={key}>
                     <td>
                       <div className="cart-product">
                         <img
@@ -106,7 +148,7 @@ export default function Cart({
                         />
                         <div className="cart-product-info">
                           <h5>{item.name}</h5>
-                          {item.optionName && item.optionValue && (
+                          {item.optionName && (item.optionValue || item.optionValue === "") && (
                             <p className="option">
                               {item.optionName}: {item.optionValue}
                             </p>
@@ -122,10 +164,7 @@ export default function Cart({
                         min="1"
                         max={item.stock}
                         onChange={(e) =>
-                          handleQuantityChange(
-                            index,
-                            parseInt(e.target.value) || 1
-                          )
+                          handleQuantityChange(key, parseInt(e.target.value, 10) || 1)
                         }
                         className="qty-input"
                       />
@@ -134,9 +173,9 @@ export default function Cart({
                     <td>
                       <button
                         className="remove-btn"
-                        onClick={() => handleRemove(index)}
+                        onClick={() => handleRemove(key)}
                       >
-                        <i className="fa fa-times"></i>
+                        <i className="fa fa-times" />
                       </button>
                     </td>
                   </tr>

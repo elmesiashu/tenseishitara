@@ -1,7 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
-const session = require("express-session");
+const cookieParser = require("cookie-parser");
 require("dotenv").config();
 
 const authRoutes = require("./routes/auth");
@@ -11,32 +11,29 @@ const dashboardRoutes = require("./routes/dashboard");
 
 const app = express();
 
-// CORS
+// FRONTEND ORIGIN
 const FRONTEND = process.env.FRONTEND_ORIGIN || "http://localhost:3000";
+
+// CORS
 app.use(cors({
   origin: FRONTEND,
-  credentials: true,
+  credentials: true, // allow cookies
 }));
 
-// Log all incoming requests
+// Required to read httpOnly cookies
+app.use(cookieParser());
+
+// Log incoming requests (for debugging)
 app.use((req, res, next) => {
   console.log("➡️", req.method, req.url);
   next();
 });
 
-// JSON body parser (only for JSON requests, not form-data)
-app.use(express.json({ type: "application/json" }));
+// Parse JSON bodies
+app.use(express.json());
 
-// Serve uploads folder (optional)
+// Serve uploads folder
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
-
-// Session
-app.use(session({
-  secret: process.env.SESSION_SECRET || "anime_secret",
-  resave: false,
-  saveUninitialized: true,
-  cookie: { secure: false }
-}));
 
 // Routes
 app.use("/api/auth", authRoutes);
