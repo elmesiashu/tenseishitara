@@ -2,17 +2,16 @@ const mysql = require('mysql2/promise');
 require('dotenv').config();
 
 const db = mysql.createPool({
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASS || '',
-  database: process.env.DB_NAME || 'myapp',
+  host: process.env.DB_HOST,
+  port: process.env.DB_PORT,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  ssl: process.env.DB_SSL === "true" ? { rejectUnauthorized: false } : false,
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
-  port: 3306
 });
-
-module.exports = db;
 
 (async () => {
   try {
@@ -20,9 +19,10 @@ module.exports = db;
     console.log("✅ MySQL Connected!");
     conn.release();
   } catch (err) {
-    console.error("MySQL Connection Failed:", err.message);
+    console.error("❌ MySQL Connection Failed:", err.message);
   }
 })();
 
 module.exports = db;
+
 
