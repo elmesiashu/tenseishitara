@@ -11,19 +11,22 @@ import "swiper/css";
 import "swiper/css/navigation";
 import "swiper/css/pagination";
 
-// Get Image path
+// Dynamic API base (works both locally and on Vercel)
+const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:5000";
+
+// Get image path
 function getImageUrl(filename) {
   if (!filename || typeof filename !== "string" || filename.trim() === "") {
     return "/images/placeholder.png";
   }
   if (filename.startsWith("http")) return filename;
   if (filename.startsWith("/api/uploads/")) {
-    return `http://localhost:5000${filename.replace("/api", "")}`;
+    return `${API_BASE}${filename.replace("/api", "")}`;
   }
   if (filename.startsWith("/uploads/")) {
-    return `http://localhost:5000${filename}`;
+    return `${API_BASE}${filename}`;
   }
-  return `http://localhost:5000/uploads/${filename}`;
+  return `${API_BASE}/uploads/${filename}`;
 }
 
 export default function Home({ user, cart, setCart, addToCart, siteDiscount }) {
@@ -34,6 +37,7 @@ export default function Home({ user, cart, setCart, addToCart, siteDiscount }) {
   const [timeLeft, setTimeLeft] = useState({});
   const navigate = useNavigate();
 
+  // Random site-wide discount
   useEffect(() => {
     const discount = sessionStorage.getItem("siteDiscount")
       ? parseInt(sessionStorage.getItem("siteDiscount"))
@@ -48,6 +52,7 @@ export default function Home({ user, cart, setCart, addToCart, siteDiscount }) {
     sessionStorage.setItem("specialDealEnd", dealTime);
   }, []);
 
+  // Countdown timer
   useEffect(() => {
     if (!specialDeal) return;
     const interval = setInterval(() => {
@@ -62,31 +67,33 @@ export default function Home({ user, cart, setCart, addToCart, siteDiscount }) {
     return () => clearInterval(interval);
   }, [specialDeal]);
 
+  // Fetch data
   useEffect(() => {
     axios
-      .get("http://localhost:5000/api/products")
+      .get(`${API_BASE}/api/products`)
       .then((res) => setProducts(res.data.sort(() => 0.5 - Math.random())))
-      .catch((err) => console.error(err));
+      .catch((err) => console.error("❌ Error fetching products:", err));
 
     axios
-      .get("http://localhost:5000/api/products/categories-with-image")
+      .get(`${API_BASE}/api/products/categories-with-image`)
       .then((res) => setCategories(res.data))
-      .catch((err) => console.error(err));
+      .catch((err) => console.error("❌ Error fetching categories:", err));
 
     if (!sessionStorage.getItem("bestPackages")) {
       axios
-        .get("http://localhost:5000/api/products/packages")
+        .get(`${API_BASE}/api/products/packages`)
         .then((res) => {
           const shuffled = res.data.sort(() => 0.5 - Math.random()).slice(0, 2);
           sessionStorage.setItem("bestPackages", JSON.stringify(shuffled));
           setBestPackages(shuffled);
         })
-        .catch((err) => console.error(err));
+        .catch((err) => console.error("❌ Error fetching packages:", err));
     } else {
       setBestPackages(JSON.parse(sessionStorage.getItem("bestPackages")));
     }
   }, []);
 
+  // Navigation helpers
   const goToProduct = (id) => navigate(`/product/${id}`);
 
   const handleAddToCart = (product) => {
@@ -219,7 +226,6 @@ export default function Home({ user, cart, setCart, addToCart, siteDiscount }) {
               {bestPackages.map((pkg) => (
                 <SwiperSlide key={pkg.animeID}>
                   <div className="card h-100 shadow-sm">
-                    
                     {/* Bundle Image Grid */}
                     <div
                       className="package-grid"
@@ -241,31 +247,28 @@ export default function Home({ user, cart, setCart, addToCart, siteDiscount }) {
                             height: "100%",
                             objectFit: "cover",
                           }}
-                          onError={(e) => (e.currentTarget.src = "/images/placeholder.png")}
+                          onError={(e) =>
+                            (e.currentTarget.src = "/images/placeholder.png")
+                          }
                         />
                       ))}
                     </div>
 
                     {/* Bundle Info */}
                     <div className="card-body text-center">
-                      <h5 className="fw-bold mb-2">
-                        {pkg.animeName} Bundle
-                      </h5>
+                      <h5 className="fw-bold mb-2">{pkg.animeName} Bundle</h5>
                       <p className="small text-muted mb-2">
                         Includes: {pkg.items.map((i) => i.productTitle).join(" + ")}
                       </p>
-
                       <p className="mb-3">
                         <span className="text-danger fw-bold">
-                          $
-                          {(pkg.price * (1 - siteDiscount / 100)).toFixed(2)}
+                          ${(pkg.price * (1 - siteDiscount / 100)).toFixed(2)}
                         </span>{" "}
                         <del>${pkg.original.toFixed(2)}</del>{" "}
                         <span className="text-success">
                           ({pkg.discountPercent}% off)
                         </span>
                       </p>
-
                       <button
                         className="btn btn-primary"
                         onClick={() =>
@@ -298,9 +301,7 @@ export default function Home({ user, cart, setCart, addToCart, siteDiscount }) {
                   <div
                     className="card h-100 text-center shadow-sm"
                     style={{ cursor: "pointer" }}
-                    onClick={() =>
-                      navigate(`/category/${category.categoryID}`)
-                    }
+                    onClick={() => navigate(`/category/${category.categoryID}`)}
                   >
                     <img
                       src={getImageUrl(category.productImage)}
