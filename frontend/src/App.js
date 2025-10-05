@@ -1,11 +1,5 @@
 import React, { useState, useEffect } from "react";
-import {
-  BrowserRouter as Router,
-  Routes,
-  Route,
-  Navigate,
-  useLocation,
-} from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import axios from "axios";
 import Navbar from "./components/Navbar";
 
@@ -24,10 +18,16 @@ import Products from "./admin/Products";
 import UploadProduct from "./admin/UploadProduct";
 import Dashboard from "./admin/Dashboard";
 
-const API = process.env.REACT_APP_API_URL || "http://localhost:5000";
+// Auto-switch API between local and deployed environments
+const API =
+  process.env.REACT_APP_API_URL ||
+  (window.location.hostname === "localhost"
+    ? "http://localhost:5000"
+    : "https://ts-anime-backend.onrender.com");
 
 function AppWrapper() {
   const location = useLocation();
+
   const [user, setUser] = useState(() => {
     const saved = localStorage.getItem("user");
     return saved ? JSON.parse(saved) : null;
@@ -39,16 +39,15 @@ function AppWrapper() {
     return saved ? JSON.parse(saved) : [];
   });
 
-  // ✅ Axios defaults
+  // Configure axios
   axios.defaults.withCredentials = true;
+  axios.defaults.baseURL = API;
 
-  // ✅ Restore session on load (prevents flicker/loop)
+  // Restore user session
   useEffect(() => {
     const restoreSession = async () => {
       try {
-        const res = await axios.get(`${API}/api/auth/me`, {
-          withCredentials: true,
-        });
+        const res = await axios.get(`/api/auth/me`);
         if (res.data?.user) {
           const normalizedUser = {
             ...res.data.user,
@@ -71,12 +70,12 @@ function AppWrapper() {
     restoreSession();
   }, []);
 
-  // ✅ Persist cart
+  // Save cart persistently
   useEffect(() => {
     localStorage.setItem("cart", JSON.stringify(cart));
   }, [cart]);
 
-  // ✅ Add to cart
+  // Add to cart handler
   const addToCart = (newItem) => {
     setCart((prevCart) => {
       const key = `${newItem.id}-${newItem.optionKey}`;
@@ -95,10 +94,10 @@ function AppWrapper() {
     });
   };
 
-  // ✅ Logout
+  // Logout handler
   const logout = async () => {
     try {
-      await axios.post(`${API}/api/auth/logout`, {}, { withCredentials: true });
+      await axios.post(`/api/auth/logout`);
     } catch (err) {
       console.error("Logout failed:", err);
     }
@@ -106,14 +105,14 @@ function AppWrapper() {
     localStorage.removeItem("user");
   };
 
-  // ✅ Hide navbar on login/register
   const hideNavbar = ["/login", "/register"];
+
   const [siteDiscount] = useState(() => {
     const saved = sessionStorage.getItem("siteDiscount");
     return saved ? parseInt(saved) : Math.floor(Math.random() * 21) + 10;
   });
 
-  // ✅ Route protection components
+  // Auth guards
   const AdminRoute = ({ element }) => {
     if (checkingSession) return <div>Checking authentication...</div>;
     return user?.isAdmin ? element : <Navigate to="/login" replace />;
@@ -215,7 +214,7 @@ function AppWrapper() {
   );
 }
 
-// MAIN APP WRAPPER
+
 export default function App() {
   return (
     <Router>

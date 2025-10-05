@@ -1,15 +1,22 @@
-// src/pages/Search.jsx
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useLocation, useNavigate } from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "bootstrap-icons/font/bootstrap-icons.css";
 
+// Dynamically detect backend base URL
+const API =
+  process.env.REACT_APP_API_URL ||
+  (window.location.hostname === "localhost"
+    ? "http://localhost:5000"
+    : "https://ts-anime-backend.onrender.com");
+
 function getImageUrl(filename) {
   if (!filename) return "/placeholder.png";
-  return `http://localhost:5000${
-    filename.startsWith("/uploads/") ? filename : `/uploads/${filename}`
-  }`;
+
+  // Handles Render deployment correctly
+  if (filename.startsWith("http")) return filename;
+  return `${API}${filename.startsWith("/uploads/") ? filename : `/uploads/${filename}`}`;
 }
 
 export default function Search({ addToCart, user, siteDiscount }) {
@@ -20,12 +27,13 @@ export default function Search({ addToCart, user, siteDiscount }) {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // 🔍 Fetch products based on keyword
+  // Fetch products based on keyword
   useEffect(() => {
     if (!keyword) return;
     setLoading(true);
+
     axios
-      .get(`http://localhost:5000/api/products?keyword=${encodeURIComponent(keyword)}`)
+      .get(`${API}/api/products?keyword=${encodeURIComponent(keyword)}`)
       .then((res) => {
         setProducts(res.data);
         setLoading(false);
@@ -36,13 +44,11 @@ export default function Search({ addToCart, user, siteDiscount }) {
       });
   }, [keyword]);
 
-  // 🛒 Handle button action (Add or View)
+  // Handle button action (Add or View)
   const handleAction = (product) => {
     if (product.hasOptions || (product.options && product.options.length > 0)) {
-      // ✅ Product has options → View product
       navigate(`/product/${product.productID}`);
     } else {
-      // ✅ No options → Add directly to cart
       const newItem = {
         id: product.productID,
         name: product.productTitle,

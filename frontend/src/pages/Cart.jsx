@@ -1,18 +1,26 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
+//  Use backend URL dynamically
+const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:5000";
+
+// Convert image filenames to full URLs
 function getImageUrl(filename) {
-  if (!filename) return null;
-  // accept full urls and several backend path shapes
+  if (!filename) return "/placeholder.png";
   if (typeof filename === "string" && filename.startsWith("http")) return filename;
-  return `http://localhost:5000${
+  return `${API_BASE}${
     filename.startsWith("/uploads/") ? filename : `/uploads/${filename}`
   }`;
 }
 
-// create a stable cart-key for a product + option combination
+// Generate a unique cart key for each product/option combo
 function makeItemKey(item) {
-  const pid = item.id ?? item.productID ?? item.productId ?? item.productid ?? item.productID;
+  const pid =
+    item.id ??
+    item.productID ??
+    item.productId ??
+    item.productid ??
+    item.productID;
   const optionName = item.optionName ?? "default";
   const optionValue = item.optionValue ?? "default";
   return `${pid}-${optionName}-${optionValue}`;
@@ -30,27 +38,22 @@ export default function Cart({
   const [totals, setTotals] = useState({ price: 0, tax: 0, total: 0 });
   const TAX_RATE = 0.12;
 
-  // Normalize incoming cart once whenever initialCart changes.
-  // We DO NOT call setCart here to avoid loops — parent already owns the source of truth.
+  // Normalize incoming cart when it changes
   useEffect(() => {
     const normalized = initialCart.map((it) => {
       const item = { ...it };
-      // ensure numeric price and qty
-      item.price = typeof item.price === "string" ? parseFloat(item.price) || 0 : item.price ?? 0;
+      item.price =
+        typeof item.price === "string" ? parseFloat(item.price) || 0 : item.price ?? 0;
       item.qty = Number.isFinite(item.qty) ? item.qty : parseInt(item.qty) || 1;
-      // unify id fields
       item.id = item.id ?? item.productID ?? item.productId;
-      // ensure stock exists
       item.stock = item.stock ?? 9999;
-      // ensure a stable key
       item.key = item.key ?? makeItemKey(item);
       return item;
     });
-
     updateCart(normalized);
   }, [initialCart]);
 
-  // Recompute totals when local cart changes
+  // Recalculate totals when cart or discount changes
   useEffect(() => {
     let subtotal = 0;
     for (const item of cart) {
@@ -62,7 +65,7 @@ export default function Cart({
     setTotals({ price: subtotal, tax, total: subtotal + tax });
   }, [cart, siteDiscount]);
 
-  // Remove by stable key — update both local and parent state
+  // Remove item from cart
   const handleRemove = (key) => {
     setCart((prev) => {
       const updated = prev.filter((it) => (it.key ?? makeItemKey(it)) !== key);
@@ -71,7 +74,7 @@ export default function Cart({
     });
   };
 
-  // Quantity change by key (clamped between 1 and stock)
+  // Update quantity safely (min 1, max stock)
   const handleQuantityChange = (key, qty) => {
     const q = Number(qty) || 1;
     setCart((prev) => {
@@ -88,9 +91,10 @@ export default function Cart({
     });
   };
 
+  // Handle checkout logic
   const handleCheckout = () => {
     if (!userLoggedIn) {
-      setError("You have to login to process your transaction");
+      setError("You have to log in to process your transaction");
       return;
     }
     navigate("/checkout");
@@ -120,7 +124,7 @@ export default function Cart({
       {error && <div className="alert alert-danger text-center">{error}</div>}
 
       <div className="cart-container">
-        {/* Cart Table */}
+        {/* ---------- CART TABLE ---------- */}
         <div className="cart-table-wrapper">
           <table className="cart-table">
             <thead>
@@ -134,7 +138,9 @@ export default function Cart({
             </thead>
             <tbody>
               {cart.map((item) => {
-                const discounted = (Number(item.price) || 0) * (1 - (Number(siteDiscount) || 0) / 100);
+                const discounted =
+                  (Number(item.price) || 0) *
+                  (1 - (Number(siteDiscount) || 0) / 100);
                 const totalPrice = discounted * (Number(item.qty) || 0);
                 const key = item.key ?? makeItemKey(item);
                 return (
@@ -148,11 +154,12 @@ export default function Cart({
                         />
                         <div className="cart-product-info">
                           <h5>{item.name}</h5>
-                          {item.optionName && (item.optionValue || item.optionValue === "") && (
-                            <p className="option">
-                              {item.optionName}: {item.optionValue}
-                            </p>
-                          )}
+                          {item.optionName &&
+                            (item.optionValue || item.optionValue === "") && (
+                              <p className="option">
+                                {item.optionName}: {item.optionValue}
+                              </p>
+                            )}
                         </div>
                       </div>
                     </td>

@@ -31,7 +31,7 @@ export default function Login({ setUser }) {
         const user = res.data.user;
         setUser(user);
 
-        // ✅ Merge session cart (if any)
+        // Merge session cart (if any)
         const sessionCart = JSON.parse(sessionStorage.getItem("cart")) || [];
         if (sessionCart.length > 0) {
           await Promise.all(
@@ -50,10 +50,10 @@ export default function Login({ setUser }) {
           sessionStorage.removeItem("cart");
         }
 
-        // ✅ Remember user if chosen
+        // Remember user if chosen
         if (remember) localStorage.setItem("user", JSON.stringify(user));
 
-        // ✅ Redirect logic
+        // Redirect logic
         if (user.isAdmin) {
           // If came from a specific admin route, go back there; else dashboard
           const adminRedirect =

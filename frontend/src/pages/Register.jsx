@@ -3,7 +3,12 @@ import axios from 'axios';
 import { Link, useNavigate } from 'react-router-dom';
 import '../css/auth.css';
 
-const API = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+// Automatically switch between localhost and deployed backend
+const API =
+  process.env.REACT_APP_API_URL ||
+  (window.location.hostname === 'localhost'
+    ? 'http://localhost:5000'
+    : 'https://ts-anime-backend.onrender.com');
 
 export default function Register() {
   const [firstname, setFirstname] = useState('');
@@ -16,14 +21,26 @@ export default function Register() {
   const handleRegister = async (e) => {
     e.preventDefault();
     setError('');
+
     try {
       const res = await axios.post(
         `${API}/api/auth/register`,
         { firstname, lastname, username, password },
-        { withCredentials: true }
+        {
+          withCredentials: true,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
       );
-      if (res.data?.user) navigate('/login');
+
+      if (res.data?.user) {
+        navigate('/login');
+      } else {
+        setError('Registration failed. Please try again.');
+      }
     } catch (err) {
+      console.error('Registration error:', err);
       setError(err.response?.data?.error || 'Registration failed');
     }
   };
@@ -41,7 +58,7 @@ export default function Register() {
           background: 'transparent',
           fontSize: '2rem',
           cursor: 'pointer',
-          zIndex: 1000
+          zIndex: 1000,
         }}
         aria-label="Close"
       >
@@ -55,7 +72,9 @@ export default function Register() {
           If you already have an account,<br />
           login here and shop freely.
         </p>
-        <Link to="/login" className="btn-register">Login</Link>
+        <Link to="/login" className="btn-register">
+          Login
+        </Link>
       </div>
 
       {/* Right Panel plain white */}
