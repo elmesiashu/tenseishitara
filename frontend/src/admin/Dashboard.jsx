@@ -3,7 +3,6 @@ import { Table, Card, Row, Col, Spinner } from "react-bootstrap";
 import Chart from "chart.js/auto";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
-import "../css/admin.css";
 
 export default function Dashboard({ user }) {
   const navigate = useNavigate();
@@ -18,7 +17,7 @@ export default function Dashboard({ user }) {
 
   const API = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
-  // ✅ Redirect non-admin users
+  // Redirect non-admin users
   useEffect(() => {
     if (!user) {
       navigate("/login", { replace: true });
@@ -30,7 +29,7 @@ export default function Dashboard({ user }) {
     }
   }, [user, navigate]);
 
-  // ✅ Fetch dashboard data
+  // Fetch dashboard data
   useEffect(() => {
     if (!user?._id || !user.isAdmin) return;
 
@@ -66,7 +65,7 @@ export default function Dashboard({ user }) {
     fetchData();
   }, [user, API]);
 
-  // ✅ Render / Update Chart.js
+  // Render / Update Chart.js
   const renderChart = (data) => {
     if (!chartRef.current) return;
 
@@ -101,7 +100,7 @@ export default function Dashboard({ user }) {
     });
   };
 
-  // ✅ Loading state
+  // Loading state
   if (loading) {
     return (
       <div className="text-center mt-5">
