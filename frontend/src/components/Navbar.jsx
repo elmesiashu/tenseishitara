@@ -132,8 +132,21 @@ export default function Navbar({ user, logout, cart = [] }) {
             Tensei Shitara<span>.</span>
           </Link>
 
-          <form>
-            <input type="text" placeholder="Search..." />
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const keyword = e.target.elements.keyword.value.trim();
+              if (keyword) {
+                navigate(`/search?keyword=${encodeURIComponent(keyword)}`);
+              }
+            }}
+          >
+            <input
+              type="text"
+              name="keyword"
+              placeholder="Search..."
+              defaultValue={new URLSearchParams(window.location.search).get("keyword") || ""}
+            />
             <button type="submit">
               <BsSearch />
             </button>

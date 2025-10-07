@@ -123,7 +123,7 @@ export default function Home({ user, cart, setCart, addToCart, siteDiscount }) {
           onClick={() =>
             categories.length > 0
               ? handleShopNow(categories[0].categoryID)
-              : navigate("/category/1")
+              : navigate("")
           }
         >
           Shop Now
