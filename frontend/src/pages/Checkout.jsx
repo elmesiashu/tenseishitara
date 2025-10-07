@@ -1,270 +1,150 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
 
-const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:5000";
+const TAX_RATE = 0.1; // 10% tax
 
-export default function Checkout({ user }) {
-  const navigate = useNavigate();
+const Checkout = () => {
   const [cart, setCart] = useState([]);
-  const [form, setForm] = useState({
-    country: "",
-    first_name: "",
-    last_name: "",
-    address: "",
-    city: "",
-    state: "",
-    zip_code: "",
-    phone_number: "",
-    email_address: "",
-  });
-
   const [subTotal, setSubTotal] = useState(0);
   const [tax, setTax] = useState(0);
   const [total, setTotal] = useState(0);
-  const TAX_RATE = 0.12;
+  const [userInfo, setUserInfo] = useState({
+    name: "",
+    email: "",
+    address: "",
+  });
 
-  // ✅ Load cart from sessionStorage if available
+  const navigate = useNavigate();
+
   useEffect(() => {
-    const savedCart = JSON.parse(sessionStorage.getItem("checkoutCart")) || [];
-    setCart(savedCart);
+    const stored = JSON.parse(sessionStorage.getItem("checkoutCart")) || [];
+    setCart(stored);
   }, []);
 
-  // ✅ Calculate totals whenever cart changes
   useEffect(() => {
-    if (!cart || cart.length === 0) return;
-    let subtotal = 0;
-    cart.forEach((item) => {
-      subtotal += (Number(item.price) || 0) * (Number(item.qty) || 1);
-    });
-    const taxValue = subtotal * TAX_RATE;
-    setSubTotal(subtotal);
-    setTax(taxValue);
-    setTotal(subtotal + taxValue);
+    if (cart.length > 0) {
+      let subtotal = 0;
+      cart.forEach((item) => {
+        subtotal += (Number(item.price) || 0) * (Number(item.qty) || 1);
+      });
+      const taxValue = subtotal * TAX_RATE;
+      setSubTotal(subtotal);
+      setTax(taxValue);
+      setTotal(subtotal + taxValue);
+    }
   }, [cart]);
 
-  const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-  };
-
-  // ✅ Place order (no login check)
-  const handlePlaceOrder = async (e) => {
-    e.preventDefault();
-
-    if (!cart || cart.length === 0) {
-      alert("Your cart is empty.");
+  const handleOrder = async () => {
+    if (!userInfo.name || !userInfo.email || !userInfo.address) {
+      alert("Please fill in all fields.");
       return;
     }
 
     try {
-      const orderData = {
-        userId: user?.id || null,
+      await axios.post(`${process.env.REACT_APP_API_URL}/api/orders`, {
+        user: userInfo,
         items: cart,
-        address: form,
+        subTotal,
+        tax,
         total,
-      };
-
-      const res = await fetch(`${API_BASE}/api/orders`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(orderData),
       });
 
-      if (!res.ok) throw new Error("Failed to place order");
-
-      // ✅ Clear cart after successful order
+      // Clear cart after successful order
       sessionStorage.removeItem("checkoutCart");
+      localStorage.removeItem("cart");
+
       navigate("/thankyou");
-    } catch (err) {
-      console.error(err);
-      alert("There was an error placing your order.");
+    } catch (error) {
+      console.error("Order submission failed:", error);
+      alert("Something went wrong. Please try again.");
     }
   };
 
-  if (!cart || cart.length === 0)
-    return (
-      <section className="text-center p-5">
-        <h3>Your cart is empty</h3>
-        <button className="btn btn-primary mt-3" onClick={() => navigate("/")}>
-          Go Shopping
-        </button>
-      </section>
-    );
-
   return (
-    <div className="container py-5 checkout-wrapper">
-      <div className="row mb-4 text-center">
-        <div className="col">
-          <h2>Checkout</h2>
-          <p>Review your order and enter shipping details.</p>
-        </div>
-      </div>
+    <div className="checkout-page container py-5">
+      <h2 className="mb-4">Checkout</h2>
 
-      <div className="row">
-        {/* ---------- REVIEW ORDER ---------- */}
-        <div className="col-md-6">
-          <div className="card shadow-sm mb-4">
-            <div className="card-header bg-primary text-white">Review Order</div>
-            <div className="card-body">
-              {cart.map((item, idx) => (
-                <div key={idx} className="d-flex mb-3 align-items-center">
-                  <img
-                    src={
-                      item.pic
-                        ? `${API_BASE}${
-                            item.pic.startsWith("/uploads/")
-                              ? item.pic
-                              : `/uploads/${item.pic}`
-                          }`
-                        : "/placeholder.png"
-                    }
-                    alt={item.name}
-                    className="img-thumbnail me-3"
-                    style={{
-                      width: "70px",
-                      height: "70px",
-                      objectFit: "cover",
-                    }}
-                  />
-                  <div className="flex-grow-1">
-                    <div className="fw-bold">{item.name}</div>
-                    <div>Qty: {item.qty}</div>
+      {cart.length === 0 ? (
+        <p>Your cart is empty.</p>
+      ) : (
+        <div className="row">
+          {/* Left - User Info */}
+          <div className="col-md-6 mb-4">
+            <h4>Billing Information</h4>
+            <form>
+              <div className="mb-3">
+                <label>Name</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  value={userInfo.name}
+                  onChange={(e) =>
+                    setUserInfo({ ...userInfo, name: e.target.value })
+                  }
+                />
+              </div>
+              <div className="mb-3">
+                <label>Email</label>
+                <input
+                  type="email"
+                  className="form-control"
+                  value={userInfo.email}
+                  onChange={(e) =>
+                    setUserInfo({ ...userInfo, email: e.target.value })
+                  }
+                />
+              </div>
+              <div className="mb-3">
+                <label>Address</label>
+                <textarea
+                  className="form-control"
+                  value={userInfo.address}
+                  onChange={(e) =>
+                    setUserInfo({ ...userInfo, address: e.target.value })
+                  }
+                ></textarea>
+              </div>
+            </form>
+          </div>
+
+          {/* Right - Order Summary */}
+          <div className="col-md-6">
+            <h4>Order Summary</h4>
+            <ul className="list-group mb-3">
+              {cart.map((item) => (
+                <li
+                  className="list-group-item d-flex justify-content-between align-items-center"
+                  key={item.id}
+                >
+                  <div>
+                    <strong>{item.name}</strong> × {item.qty}
                   </div>
-                  <div className="fw-bold">
-                    ${(item.price * item.qty).toFixed(2)}
-                  </div>
-                </div>
+                  <div>${(item.price * item.qty).toFixed(2)}</div>
+                </li>
               ))}
-              <hr />
-              <div className="d-flex justify-content-between">
-                <span>Subtotal:</span>
+              <li className="list-group-item d-flex justify-content-between">
+                <span>Subtotal</span>
                 <strong>${subTotal.toFixed(2)}</strong>
-              </div>
-              <div className="d-flex justify-content-between">
-                <span>Tax (12%):</span>
+              </li>
+              <li className="list-group-item d-flex justify-content-between">
+                <span>Tax (10%)</span>
                 <strong>${tax.toFixed(2)}</strong>
-              </div>
-              <div className="d-flex justify-content-between mt-2">
-                <span className="fw-bold">Total:</span>
-                <strong className="fs-5">${total.toFixed(2)}</strong>
-              </div>
-            </div>
+              </li>
+              <li className="list-group-item d-flex justify-content-between">
+                <span>Total</span>
+                <strong>${total.toFixed(2)}</strong>
+              </li>
+            </ul>
+
+            <button className="btn btn-success w-100" onClick={handleOrder}>
+              Place Order
+            </button>
           </div>
         </div>
-
-        {/* ---------- SHIPPING FORM ---------- */}
-        <div className="col-md-6">
-          <form onSubmit={handlePlaceOrder} className="card shadow-sm">
-            <div className="card-header bg-primary text-white">Shipping Info</div>
-            <div className="card-body">
-              <div className="row g-3">
-                <div className="col-md-12">
-                  <input
-                    type="text"
-                    name="country"
-                    placeholder="Country"
-                    className="form-control"
-                    value={form.country}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
-                <div className="col-md-6">
-                  <input
-                    type="text"
-                    name="first_name"
-                    placeholder="First Name"
-                    className="form-control"
-                    value={form.first_name}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
-                <div className="col-md-6">
-                  <input
-                    type="text"
-                    name="last_name"
-                    placeholder="Last Name"
-                    className="form-control"
-                    value={form.last_name}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
-                <div className="col-md-12">
-                  <input
-                    type="text"
-                    name="address"
-                    placeholder="Address"
-                    className="form-control"
-                    value={form.address}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
-                <div className="col-md-6">
-                  <input
-                    type="text"
-                    name="city"
-                    placeholder="City"
-                    className="form-control"
-                    value={form.city}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
-                <div className="col-md-6">
-                  <input
-                    type="text"
-                    name="state"
-                    placeholder="State"
-                    className="form-control"
-                    value={form.state}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
-                <div className="col-md-6">
-                  <input
-                    type="text"
-                    name="zip_code"
-                    placeholder="Zip Code"
-                    className="form-control"
-                    value={form.zip_code}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
-                <div className="col-md-6">
-                  <input
-                    type="text"
-                    name="phone_number"
-                    placeholder="Phone Number"
-                    className="form-control"
-                    value={form.phone_number}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
-                <div className="col-md-12">
-                  <input
-                    type="email"
-                    name="email_address"
-                    placeholder="Email Address"
-                    className="form-control"
-                    value={form.email_address}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
-              </div>
-              <hr />
-              <button type="submit" className="btn btn-success w-100 mt-3">
-                Place Order
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
+      )}
     </div>
   );
-}
+};
+
+export default Checkout;
