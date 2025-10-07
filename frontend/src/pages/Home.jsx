@@ -167,7 +167,7 @@ export default function Home({ user, cart, setCart, addToCart, siteDiscount }) {
                           }
                         />
                         <FaInfoCircle
-                          className="info-icon position-absolute top-0 end-0 m-2 text-primary"
+                          className="info-icon"
                           onClick={() => goToProduct(product.productID)}
                           title="View Product"
                           style={{ cursor: "pointer", fontSize: "1.5rem" }}
