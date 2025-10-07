@@ -1,6 +1,5 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import paymentImg from "../assets/images/payment.png"; // ✅ adjust this path if needed
 
 export default function Footer() {
   return (
@@ -44,7 +43,7 @@ export default function Footer() {
             <ul className="list-unstyled">
               <li><span className="d-block">📞 +1-234-567-890</span></li>
               <li><span className="d-block">✉️ tenseishitara@gmail.com</span></li>
-              <li><span className="d-block">📍 Vancouver, Canada</span></li>
+              <li><span className="d-block">Vancouver, Canada</span></li>
             </ul>
             <img
               src={paymentImg}
