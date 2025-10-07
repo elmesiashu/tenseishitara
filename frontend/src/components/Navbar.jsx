@@ -1,7 +1,16 @@
 import React, { useState, useEffect } from "react";
 import { FaTimes } from "react-icons/fa";
-import { BsSearch, BsHouseFill, BsBasket, BsJournal, BsFillMoonFill, BsServer, BsBarChartFill, BsJustify} from "react-icons/bs";
-import { Link, useNavigate } from "react-router-dom";
+import {
+  BsSearch,
+  BsHouseFill,
+  BsBasket,
+  BsJournal,
+  BsFillMoonFill,
+  BsServer,
+  BsBarChartFill,
+  BsJustify,
+} from "react-icons/bs";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
 
 const API = process.env.REACT_APP_API_URL || "http://localhost:5000";
@@ -12,11 +21,12 @@ export default function Navbar({ user, logout, cart = [] }) {
   const [animeList, setAnimeList] = useState([]);
   const [showAnimeDropdown, setShowAnimeDropdown] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
 
   // Toggle dark mode
   const handleDarkModeToggle = () => setDarkMode((prev) => !prev);
 
-  // Load correct CSS depending on user type (admin vs user)
+  // Load CSS
   useEffect(() => {
     if (user?.isAdmin) {
       import("../css/admin.css");
@@ -25,7 +35,7 @@ export default function Navbar({ user, logout, cart = [] }) {
     }
   }, [user]);
 
-  // Apply dark mode to body
+  // Apply dark mode
   useEffect(() => {
     document.body.classList.toggle("active", darkMode);
   }, [darkMode]);
@@ -33,24 +43,23 @@ export default function Navbar({ user, logout, cart = [] }) {
   // Fetch anime list
   useEffect(() => {
     axios
-      .get(`${API}/api/anime`)
+      .get(`${API}/api/products/anime`)
       .then((res) => setAnimeList(res.data))
-      .catch((err) => console.error("Failed to load anime list:", err));
+      .catch((err) => console.error("Error fetching anime list:", err));
   }, []);
 
-  // Cart counter
-  const cartCount = cart.reduce((sum, item) => sum + (item.qty || 1), 0);
-
-  // Compute correct user image URL
-  const getUserImage = (imgPath) =>
-    imgPath ? `${API}${imgPath}` : `${API}/uploads/default.png`;
-
+  // Navigate to selected anime
   const handleAnimeSelect = (animeName) => {
     setShowAnimeDropdown(false);
     navigate(`/category/${encodeURIComponent(animeName)}`);
   };
 
-  // ---------------- ADMIN NAVBAR ----------------
+  const cartCount = cart.reduce((sum, item) => sum + (item.qty || 1), 0);
+
+  const getUserImage = (imgPath) =>
+    imgPath ? `${API}${imgPath}` : `${API}/uploads/default.png`;
+
+  // -------------------- ADMIN NAVBAR --------------------
   if (user?.isAdmin) {
     return (
       <>
@@ -68,34 +77,19 @@ export default function Navbar({ user, logout, cart = [] }) {
             </form>
 
             <div className="icons">
-              <Link
-                className="icon-wrapper"
-                to="/admin/dashboard"
-                title="Dashboard"
-              >
+              <Link className="icon-wrapper" to="/admin/dashboard" title="Dashboard">
                 <BsServer />
               </Link>
-
               <Link className="icon-wrapper" to="/admin/products" title="Products">
                 <BsJournal />
               </Link>
-
               <Link className="icon-wrapper" to="/admin/reports" title="Reports">
                 <BsBarChartFill />
               </Link>
-
-              <div
-                className="icon-wrapper"
-                title="Toggle Theme"
-                onClick={handleDarkModeToggle}
-              >
+              <div className="icon-wrapper" title="Toggle Theme" onClick={handleDarkModeToggle}>
                 <BsFillMoonFill />
               </div>
-
-              <div
-                className="icon-wrapper"
-                onClick={() => setMenuSlide(!menuSlide)}
-              >
+              <div className="icon-wrapper" onClick={() => setMenuSlide(!menuSlide)}>
                 <BsJustify />
               </div>
             </div>
@@ -104,11 +98,7 @@ export default function Navbar({ user, logout, cart = [] }) {
 
         <nav className={`navbar ${menuSlide ? "active" : ""}`}>
           <div className="user text-center">
-            <img
-              src={getUserImage(user?.userImg)}
-              alt="Admin Avatar"
-              className="rounded-circle"
-            />
+            <img src={getUserImage(user?.userImg)} alt="Admin Avatar" className="rounded-circle" />
             <h5>{user?.fname || "Admin"}</h5>
           </div>
 
@@ -117,11 +107,7 @@ export default function Navbar({ user, logout, cart = [] }) {
             <Link to="/admin/products" className="nav-link">Products</Link>
             <Link to="/admin/orders" className="nav-link">Orders</Link>
             <Link to="/admin/users" className="nav-link">Users</Link>
-            <Link to="/admin/reviews" className="nav-link">Reviews</Link>
-            <Link to="/admin/promotions" className="nav-link">Promotions</Link>
             <Link to="/admin/reports" className="nav-link">Reports</Link>
-            <Link to="/admin/settings" className="nav-link">Settings</Link>
-
             {user ? (
               <button className="btn btn-danger mt-3" onClick={logout}>Logout</button>
             ) : (
@@ -137,81 +123,71 @@ export default function Navbar({ user, logout, cart = [] }) {
     );
   }
 
-  // ---------------- USER NAVBAR ----------------
+  // -------------------- USER NAVBAR --------------------
   return (
     <>
       <header className="header">
         <section className="flex">
-          <Link to="/" className="logo">Tensei Shitara<span>.</span></Link>
+          <Link to="/" className="logo">
+            Tensei Shitara<span>.</span>
+          </Link>
 
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              const keyword = e.target.elements.keyword.value.trim();
-              if (keyword) {
-                navigate(`/search?keyword=${encodeURIComponent(keyword)}`);
-              }
-            }}
-          >
-            <input
-              type="text"
-              name="keyword"
-              placeholder="Search..."
-              defaultValue={new URLSearchParams(window.location.search).get("keyword") || ""}
-            />
+          <form>
+            <input type="text" placeholder="Search..." />
             <button type="submit">
               <BsSearch />
             </button>
           </form>
 
-
           <div className="icons">
-            <Link to="/" className="icon-wrapper" title="Home">
-              <BsHouseFill />
-            </Link>
+            {location.pathname !== "/" && (
+              <Link to="/" className="icon-wrapper" title="Home">
+                <BsHouseFill />
+              </Link>
+            )}
 
-            <Link to="/search" className="icon-wrapper" title="Products">
-              <BsJournal />
-            </Link>
-
-            {/* Cart + Anime Dropdown */}
+            {/* Products Dropdown
             <div
-              className="icon-wrapper cart-icon"
+              className="dropdown"
               onMouseEnter={() => setShowAnimeDropdown(true)}
               onMouseLeave={() => setShowAnimeDropdown(false)}
             >
+              <div className="icon-wrapper dropbtn" title="Products">
+                <BsJournal />
+              </div>
+
+              {showAnimeDropdown && (
+                <div className="dropdown-content">
+                  {animeList.length > 0 ? (
+                    animeList.map((anime) => (
+                      <div
+                        key={anime.animeID}
+                        className="dropdown-item"
+                        onClick={() => handleAnimeSelect(anime.animeName)}
+                      >
+                        {anime.animeName}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="dropdown-item">No anime found</div>
+                  )}
+                </div>
+              )}
+            </div> */}
+
+            {/* Cart */}
+            <div className="icon-wrapper cart-icon">
               <Link to="/cart" title="Cart" className="cart-link">
                 <BsBasket />
                 {cartCount > 0 && <span className="cart-count">{cartCount}</span>}
               </Link>
-
-              {showAnimeDropdown && animeList.length > 0 && (
-                <div className="anime-dropdown">
-                  {animeList.map((anime) => (
-                    <div
-                      key={anime.id}
-                      className="anime-item"
-                      onClick={() => handleAnimeSelect(anime.name)}
-                    >
-                      {anime.name}
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
 
-            <div
-              className="icon-wrapper"
-              title="Toggle Theme"
-              onClick={handleDarkModeToggle}
-            >
+            <div className="icon-wrapper" title="Toggle Theme" onClick={handleDarkModeToggle}>
               <BsFillMoonFill />
             </div>
 
-            <div
-              className="icon-wrapper"
-              onClick={() => setMenuSlide(!menuSlide)}
-            >
+            <div className="icon-wrapper" onClick={() => setMenuSlide(!menuSlide)}>
               <BsJustify />
             </div>
           </div>
@@ -220,27 +196,20 @@ export default function Navbar({ user, logout, cart = [] }) {
 
       <nav className={`navbar ${menuSlide ? "active" : ""}`}>
         <div className="user text-center">
-          <img
-            src={getUserImage(user?.userImg)}
-            alt="User Avatar"
-            className="rounded-circle"
-          />
+          <img src={getUserImage(user?.userImg)} alt="User Avatar" className="rounded-circle" />
           <h5>{user?.fname || "Guest"}</h5>
         </div>
 
         <div className="links text-center">
-          <Link to="/" className="nav-link">Home</Link>
-          <Link to="/search" className="nav-link">Anime Series
-          </Link>
+          {location.pathname !== "/" && <Link to="/" className="nav-link">Home</Link>}
+          <Link to="/search" className="nav-link">Anime Series</Link>
           <Link to="/contact" className="nav-link">Contact Us</Link>
-
           {user ? (
             <>
               <Link to="/order" className="nav-link">Order History</Link>
               <Link to="/payment" className="nav-link">Payment</Link>
               <Link to="/account" className="nav-link">Account</Link>
               <Link to="/settings" className="nav-link">Settings</Link>
-
               <button className="btn btn-danger mt-3" onClick={logout}>Logout</button>
             </>
           ) : (
@@ -249,7 +218,9 @@ export default function Navbar({ user, logout, cart = [] }) {
               onClick={() => {
                 setMenuSlide(false);
                 navigate("/login");
-              }}>Login
+              }}
+            >
+              Login
             </button>
           )}
         </div>

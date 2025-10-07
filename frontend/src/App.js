@@ -8,7 +8,7 @@ import {
 } from "react-router-dom";
 import axios from "axios";
 import Navbar from "./components/Navbar";
-import Footer from "./components/Footer"; // ✅ moved Footer to components
+import Footer from "./components/Footer";
 
 // ---------- User Pages ----------
 import Home from "./pages/Home";
@@ -19,6 +19,7 @@ import Cart from "./pages/Cart";
 import ProductInfo from "./pages/Product";
 import Category from "./pages/Category";
 import Account from "./pages/Account";
+import Checkout from "./pages/Checkout"; 
 
 // ---------- Admin Pages ----------
 import Products from "./admin/Products";
@@ -177,6 +178,17 @@ function AppWrapper() {
           }
         />
         <Route
+          path="/checkout" // ✅ Added checkout route
+          element={
+            <Checkout
+              cart={cart}
+              setCart={setCart}
+              user={user}
+              siteDiscount={siteDiscount}
+            />
+          }
+        />
+        <Route
           path="/product/:id"
           element={
             <ProductInfo addToCart={addToCart} siteDiscount={siteDiscount} />
@@ -221,7 +233,7 @@ function AppWrapper() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 
-      {/* ✅ Footer appears on every page except login/register */}
+      {/* Footer appears on every page except login/register */}
       {!hideNavbarAndFooter.includes(location.pathname.toLowerCase()) && (
         <Footer />
       )}
