@@ -72,12 +72,12 @@ export default function Home({ user, cart, setCart, addToCart, siteDiscount }) {
     axios
       .get(`${API_BASE}/api/products`)
       .then((res) => setProducts(res.data.sort(() => 0.5 - Math.random())))
-      .catch((err) => console.error("❌ Error fetching products:", err));
+      .catch((err) => console.error("Error fetching products:", err));
 
     axios
       .get(`${API_BASE}/api/products/categories-with-image`)
       .then((res) => setCategories(res.data))
-      .catch((err) => console.error("❌ Error fetching categories:", err));
+      .catch((err) => console.error("Error fetching categories:", err));
 
     if (!sessionStorage.getItem("bestPackages")) {
       axios
@@ -87,7 +87,7 @@ export default function Home({ user, cart, setCart, addToCart, siteDiscount }) {
           sessionStorage.setItem("bestPackages", JSON.stringify(shuffled));
           setBestPackages(shuffled);
         })
-        .catch((err) => console.error("❌ Error fetching packages:", err));
+        .catch((err) => console.error("Error fetching packages:", err));
     } else {
       setBestPackages(JSON.parse(sessionStorage.getItem("bestPackages")));
     }
