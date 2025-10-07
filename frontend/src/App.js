@@ -1,9 +1,16 @@
 import React, { useState, useEffect } from "react";
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+  useLocation,
+} from "react-router-dom";
 import axios from "axios";
 import Navbar from "./components/Navbar";
+import Footer from "./components/Footer"; // ✅ moved Footer to components
 
-// User pages
+// ---------- User Pages ----------
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -13,12 +20,12 @@ import ProductInfo from "./pages/Product";
 import Category from "./pages/Category";
 import Account from "./pages/Account";
 
-// Admin pages
+// ---------- Admin Pages ----------
 import Products from "./admin/Products";
 import UploadProduct from "./admin/UploadProduct";
 import Dashboard from "./admin/Dashboard";
 
-// Auto-switch API between local and deployed environments
+// ---------- API Setup ----------
 const API =
   process.env.REACT_APP_API_URL ||
   (window.location.hostname === "localhost"
@@ -28,22 +35,26 @@ const API =
 function AppWrapper() {
   const location = useLocation();
 
+  // ---------- State ----------
   const [user, setUser] = useState(() => {
     const saved = localStorage.getItem("user");
     return saved ? JSON.parse(saved) : null;
   });
-
   const [checkingSession, setCheckingSession] = useState(true);
   const [cart, setCart] = useState(() => {
     const saved = localStorage.getItem("cart");
     return saved ? JSON.parse(saved) : [];
   });
+  const [siteDiscount] = useState(() => {
+    const saved = sessionStorage.getItem("siteDiscount");
+    return saved ? parseInt(saved) : Math.floor(Math.random() * 21) + 10;
+  });
 
-  // Configure axios
+  // ---------- Axios Configuration ----------
   axios.defaults.withCredentials = true;
   axios.defaults.baseURL = API;
 
-  // Restore user session
+  // ---------- Restore User Session ----------
   useEffect(() => {
     const restoreSession = async () => {
       try {
@@ -70,12 +81,12 @@ function AppWrapper() {
     restoreSession();
   }, []);
 
-  // Save cart persistently
+  // ---------- Persist Cart ----------
   useEffect(() => {
     localStorage.setItem("cart", JSON.stringify(cart));
   }, [cart]);
 
-  // Add to cart handler
+  // ---------- Add to Cart ----------
   const addToCart = (newItem) => {
     setCart((prevCart) => {
       const key = `${newItem.id}-${newItem.optionKey}`;
@@ -94,7 +105,7 @@ function AppWrapper() {
     });
   };
 
-  // Logout handler
+  // ---------- Logout ----------
   const logout = async () => {
     try {
       await axios.post(`/api/auth/logout`);
@@ -105,14 +116,10 @@ function AppWrapper() {
     localStorage.removeItem("user");
   };
 
-  const hideNavbar = ["/login", "/register"];
+  // ---------- Conditional Navbar/Footer ----------
+  const hideNavbarAndFooter = ["/login", "/register"];
 
-  const [siteDiscount] = useState(() => {
-    const saved = sessionStorage.getItem("siteDiscount");
-    return saved ? parseInt(saved) : Math.floor(Math.random() * 21) + 10;
-  });
-
-  // Auth guards
+  // ---------- Route Guards ----------
   const AdminRoute = ({ element }) => {
     if (checkingSession) return <div>Checking authentication...</div>;
     return user?.isAdmin ? element : <Navigate to="/login" replace />;
@@ -127,9 +134,10 @@ function AppWrapper() {
     return <div className="loading text-center mt-5">Checking session...</div>;
   }
 
+  // ---------- Render ----------
   return (
     <>
-      {!hideNavbar.includes(location.pathname.toLowerCase()) && (
+      {!hideNavbarAndFooter.includes(location.pathname.toLowerCase()) && (
         <Navbar user={user} logout={logout} cart={cart} />
       )}
 
@@ -170,7 +178,9 @@ function AppWrapper() {
         />
         <Route
           path="/product/:id"
-          element={<ProductInfo addToCart={addToCart} siteDiscount={siteDiscount} />}
+          element={
+            <ProductInfo addToCart={addToCart} siteDiscount={siteDiscount} />
+          }
         />
         <Route
           path="/search"
@@ -210,11 +220,16 @@ function AppWrapper() {
         {/* FALLBACK */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+
+      {/* ✅ Footer appears on every page except login/register */}
+      {!hideNavbarAndFooter.includes(location.pathname.toLowerCase()) && (
+        <Footer />
+      )}
     </>
   );
 }
 
-
+// ---------- Root App ----------
 export default function App() {
   return (
     <Router>
