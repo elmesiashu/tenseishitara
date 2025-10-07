@@ -3,8 +3,9 @@ import { useNavigate } from "react-router-dom";
 
 const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
-export default function Checkout({ cart = [], user }) {
+export default function Checkout({ user }) {
   const navigate = useNavigate();
+  const [cart, setCart] = useState([]);
   const [form, setForm] = useState({
     country: "",
     first_name: "",
@@ -16,12 +17,21 @@ export default function Checkout({ cart = [], user }) {
     phone_number: "",
     email_address: "",
   });
+
   const [subTotal, setSubTotal] = useState(0);
   const [tax, setTax] = useState(0);
   const [total, setTotal] = useState(0);
   const TAX_RATE = 0.12;
 
+  // ✅ Load cart from sessionStorage if available
   useEffect(() => {
+    const savedCart = JSON.parse(sessionStorage.getItem("checkoutCart")) || [];
+    setCart(savedCart);
+  }, []);
+
+  // ✅ Calculate totals whenever cart changes
+  useEffect(() => {
+    if (!cart || cart.length === 0) return;
     let subtotal = 0;
     cart.forEach((item) => {
       subtotal += (Number(item.price) || 0) * (Number(item.qty) || 1);
@@ -36,21 +46,23 @@ export default function Checkout({ cart = [], user }) {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
+  // ✅ Place order (no login check)
   const handlePlaceOrder = async (e) => {
     e.preventDefault();
-    if (!user) {
-      alert("Please login to continue checkout.");
-      navigate("/login", { state: { from: "/checkout" } });
+
+    if (!cart || cart.length === 0) {
+      alert("Your cart is empty.");
       return;
     }
 
     try {
       const orderData = {
-        userId: user.id,
+        userId: user?.id || null,
         items: cart,
         address: form,
         total,
       };
+
       const res = await fetch(`${API_BASE}/api/orders`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -58,6 +70,9 @@ export default function Checkout({ cart = [], user }) {
       });
 
       if (!res.ok) throw new Error("Failed to place order");
+
+      // ✅ Clear cart after successful order
+      sessionStorage.removeItem("checkoutCart");
       navigate("/thankyou");
     } catch (err) {
       console.error(err);
@@ -88,9 +103,7 @@ export default function Checkout({ cart = [], user }) {
         {/* ---------- REVIEW ORDER ---------- */}
         <div className="col-md-6">
           <div className="card shadow-sm mb-4">
-            <div className="card-header bg-primary text-white">
-              Review Order
-            </div>
+            <div className="card-header bg-primary text-white">Review Order</div>
             <div className="card-body">
               {cart.map((item, idx) => (
                 <div key={idx} className="d-flex mb-3 align-items-center">
@@ -106,13 +119,19 @@ export default function Checkout({ cart = [], user }) {
                     }
                     alt={item.name}
                     className="img-thumbnail me-3"
-                    style={{ width: "70px", height: "70px", objectFit: "cover" }}
+                    style={{
+                      width: "70px",
+                      height: "70px",
+                      objectFit: "cover",
+                    }}
                   />
                   <div className="flex-grow-1">
                     <div className="fw-bold">{item.name}</div>
                     <div>Qty: {item.qty}</div>
                   </div>
-                  <div className="fw-bold">${(item.price * item.qty).toFixed(2)}</div>
+                  <div className="fw-bold">
+                    ${(item.price * item.qty).toFixed(2)}
+                  </div>
                 </div>
               ))}
               <hr />
@@ -132,7 +151,7 @@ export default function Checkout({ cart = [], user }) {
           </div>
         </div>
 
-        {/* ---------- SHIPPING & PAYMENT ---------- */}
+        {/* ---------- SHIPPING FORM ---------- */}
         <div className="col-md-6">
           <form onSubmit={handlePlaceOrder} className="card shadow-sm">
             <div className="card-header bg-primary text-white">Shipping Info</div>
