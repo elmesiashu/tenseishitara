@@ -11,10 +11,10 @@ export default function Footer() {
             <h5 className="text-uppercase mb-3">Quick Links</h5>
             <ul className="list-unstyled">
               <li><Link className="text-light text-decoration-none" to="/">Home</Link></li>
-              <li><Link className="text-light text-decoration-none" to="/products">Products</Link></li>
-              <li><Link className="text-light text-decoration-none" to="/featured">Featured</Link></li>
-              <li><Link className="text-light text-decoration-none" to="/deals">Deals</Link></li>
-              <li><Link className="text-light text-decoration-none" to="/reviews">Reviews</Link></li>
+              <li><Link className="text-light text-decoration-none" to="">Products</Link></li>
+              <li><Link className="text-light text-decoration-none" to="">Featured</Link></li>
+              <li><Link className="text-light text-decoration-none" to="">Deals</Link></li>
+              <li><Link className="text-light text-decoration-none" to="">Reviews</Link></li>
             </ul>
           </div>
 
@@ -22,9 +22,9 @@ export default function Footer() {
           <div className="col-6 col-md-3">
             <h5 className="text-uppercase mb-3">Account</h5>
             <ul className="list-unstyled">
-              <li><Link className="text-light text-decoration-none" to="/account">Account</Link></li>
-              <li><Link className="text-light text-decoration-none" to="/history">History</Link></li>
-              <li><Link className="text-light text-decoration-none" to="/cart">Cart</Link></li>
+              <li><Link className="text-light text-decoration-none" to="">Account</Link></li>
+              <li><Link className="text-light text-decoration-none" to="">History</Link></li>
+              <li><Link className="text-light text-decoration-none" to="">Cart</Link></li>
             </ul>
           </div>
 

@@ -1,15 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { FaTimes } from "react-icons/fa";
-import {
-  BsSearch,
-  BsHouseFill,
-  BsBasket,
-  BsJournal,
-  BsFillMoonFill,
-  BsServer,
-  BsBarChartFill,
-  BsJustify,
-} from "react-icons/bs";
+import { BsSearch, BsHouseFill, BsBasket, BsJournal, BsFillMoonFill, BsServer, BsBarChartFill, BsJustify } from "react-icons/bs";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
 

@@ -1,11 +1,5 @@
 import React, { useState, useEffect } from "react";
-import {
-  BrowserRouter as Router,
-  Routes,
-  Route,
-  Navigate,
-  useLocation,
-} from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import axios from "axios";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
@@ -19,7 +13,7 @@ import Cart from "./pages/Cart";
 import ProductInfo from "./pages/Product";
 import Category from "./pages/Category";
 import Account from "./pages/Account";
-import Checkout from "./pages/Checkout"; 
+import Checkout from "./pages/Checkout";
 
 // ---------- Admin Pages ----------
 import Products from "./admin/Products";
@@ -142,96 +136,105 @@ function AppWrapper() {
         <Navbar user={user} logout={logout} cart={cart} />
       )}
 
-      <Routes>
-        {/* HOME */}
-        <Route
-          path="/"
-          element={
-            user?.isAdmin ? (
-              <Navigate to="/admin/dashboard" replace />
-            ) : (
-              <Home
-                user={user}
-                cart={cart}
+      {/* ✅ Wrap Routes inside <main> for sticky footer layout */}
+      <main>
+        <Routes>
+          {/* HOME */}
+          <Route
+            path="/"
+            element={
+              user?.isAdmin ? (
+                <Navigate to="/admin/dashboard" replace />
+              ) : (
+                <Home
+                  user={user}
+                  cart={cart}
+                  setCart={setCart}
+                  addToCart={addToCart}
+                  siteDiscount={siteDiscount}
+                />
+              )
+            }
+          />
+
+          {/* AUTH */}
+          <Route path="/login" element={<Login setUser={setUser} />} />
+          <Route path="/register" element={<Register />} />
+
+          {/* USER ROUTES */}
+          <Route
+            path="/cart"
+            element={
+              <Cart
+                initialCart={cart}
                 setCart={setCart}
-                addToCart={addToCart}
+                userLoggedIn={!!user}
                 siteDiscount={siteDiscount}
               />
-            )
-          }
-        />
+            }
+          />
+          <Route
+            path="/checkout"
+            element={
+              <Checkout
+                cart={cart}
+                setCart={setCart}
+                user={user}
+                siteDiscount={siteDiscount}
+              />
+            }
+          />
+          <Route
+            path="/product/:id"
+            element={
+              <ProductInfo addToCart={addToCart} siteDiscount={siteDiscount} />
+            }
+          />
+          <Route
+            path="/search"
+            element={
+              <Search
+                addToCart={addToCart}
+                cart={cart}
+                setCart={setCart}
+                user={user}
+                siteDiscount={siteDiscount}
+              />
+            }
+          />
+          <Route
+            path="/category/:id"
+            element={
+              <Category addToCart={addToCart} siteDiscount={siteDiscount} />
+            }
+          />
+          <Route
+            path="/account"
+            element={
+              <PrivateRoute
+                element={<Account user={user} setUser={setUser} />}
+              />
+            }
+          />
 
-        {/* AUTH */}
-        <Route path="/login" element={<Login setUser={setUser} />} />
-        <Route path="/register" element={<Register />} />
+          {/* ADMIN ROUTES */}
+          <Route
+            path="/admin/dashboard"
+            element={<AdminRoute element={<Dashboard user={user} />} />}
+          />
+          <Route
+            path="/admin/products"
+            element={<AdminRoute element={<Products />} />}
+          />
+          <Route
+            path="/admin/products/upload"
+            element={<AdminRoute element={<UploadProduct />} />}
+          />
 
-        {/* USER ROUTES */}
-        <Route
-          path="/cart"
-          element={
-            <Cart
-              initialCart={cart}
-              setCart={setCart}
-              userLoggedIn={!!user}
-              siteDiscount={siteDiscount}
-            />
-          }
-        />
-        <Route
-          path="/checkout" // ✅ Added checkout route
-          element={
-            <Checkout
-              cart={cart}
-              setCart={setCart}
-              user={user}
-              siteDiscount={siteDiscount}
-            />
-          }
-        />
-        <Route
-          path="/product/:id"
-          element={
-            <ProductInfo addToCart={addToCart} siteDiscount={siteDiscount} />
-          }
-        />
-        <Route
-          path="/search"
-          element={
-            <Search
-              addToCart={addToCart}
-              cart={cart}
-              setCart={setCart}
-              user={user}
-              siteDiscount={siteDiscount}
-            />
-          }
-        />
-        <Route
-          path="/category/:id"
-          element={<Category addToCart={addToCart} siteDiscount={siteDiscount} />}
-        />
-        <Route
-          path="/account"
-          element={<PrivateRoute element={<Account user={user} setUser={setUser} />} />}
-        />
-
-        {/* ADMIN ROUTES */}
-        <Route
-          path="/admin/dashboard"
-          element={<AdminRoute element={<Dashboard user={user} />} />}
-        />
-        <Route
-          path="/admin/products"
-          element={<AdminRoute element={<Products />} />}
-        />
-        <Route
-          path="/admin/products/upload"
-          element={<AdminRoute element={<UploadProduct />} />}
-        />
-
-        {/* FALLBACK */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+          {/* FALLBACK */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </main>
 
       {/* Footer appears on every page except login/register */}
       {!hideNavbarAndFooter.includes(location.pathname.toLowerCase()) && (

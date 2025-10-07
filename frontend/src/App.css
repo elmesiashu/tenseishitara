@@ -73,6 +73,21 @@ section {
     color: #fff;
 }
 
+/* === Sticky Footer Layout === */
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+}
+
+main {
+  flex: 1;
+}
+
+
 /* ---------- HEADER ---------- */
 .header {
     position: sticky;
@@ -993,4 +1008,12 @@ body.active .qty-input {
 
 .btn-submit-fix:hover {
   background: #27ae60;
+}
+
+footer {
+  background: var(--black-color);
+  color: var(--white-color);
+  text-align: center;
+  padding: 2rem 0;
+  margin-top: auto; /* ensures it sticks to bottom */
 }
