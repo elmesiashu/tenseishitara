@@ -1,15 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { FaTimes } from "react-icons/fa";
-import {
-  BsSearch,
-  BsHouseFill,
-  BsBasket,
-  BsJournal,
-  BsFillMoonFill,
-  BsServer,
-  BsBarChartFill,
-  BsJustify,
-} from "react-icons/bs";
+import { BsSearch, BsHouseFill, BsBasket, BsJournal, BsFillMoonFill, BsServer, BsBarChartFill, BsJustify} from "react-icons/bs";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 
@@ -153,12 +144,26 @@ export default function Navbar({ user, logout, cart = [] }) {
         <section className="flex">
           <Link to="/" className="logo">Tensei Shitara<span>.</span></Link>
 
-          <form>
-            <input type="text" placeholder="Search..." />
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const keyword = e.target.elements.keyword.value.trim();
+              if (keyword) {
+                navigate(`/search?keyword=${encodeURIComponent(keyword)}`);
+              }
+            }}
+          >
+            <input
+              type="text"
+              name="keyword"
+              placeholder="Search..."
+              defaultValue={new URLSearchParams(window.location.search).get("keyword") || ""}
+            />
             <button type="submit">
               <BsSearch />
             </button>
           </form>
+
 
           <div className="icons">
             <Link to="/" className="icon-wrapper" title="Home">
@@ -239,7 +244,13 @@ export default function Navbar({ user, logout, cart = [] }) {
               <button className="btn btn-danger mt-3" onClick={logout}>Logout</button>
             </>
           ) : (
-            <Link to="/login" className="btn btn-primary mt-3">Login</Link>
+            <button
+              className="btn btn-primary mt-3"
+              onClick={() => {
+                setMenuSlide(false);
+                navigate("/login");
+              }}>Login
+            </button>
           )}
         </div>
 

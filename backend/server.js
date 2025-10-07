@@ -29,7 +29,7 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: allowedOrigins,
-    credentials: true, // ✅ allow cookies cross-origin
+    credentials: true, // allow cookies cross-origin
   })
 );
 
@@ -40,7 +40,7 @@ app.use(
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: process.env.NODE_ENV === "production", // only true on Vercel
+      secure: process.env.NODE_ENV === "production", 
       httpOnly: true,
       sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
     },
