@@ -45,12 +45,6 @@ export default function Footer() {
               <li><span className="d-block">✉️ tenseishitara@gmail.com</span></li>
               <li><span className="d-block">Vancouver, Canada</span></li>
             </ul>
-            <img
-              src={paymentImg}
-              alt="Payment Methods"
-              className="img-fluid mt-2"
-              style={{ maxWidth: "150px" }}
-            />
           </div>
         </div>
 
