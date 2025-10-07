@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
-const Cart = () => {
+export default function Cart() {
   const [cart, setCart] = useState([]);
   const [siteDiscount, setSiteDiscount] = useState(0);
   const navigate = useNavigate();
@@ -11,7 +11,7 @@ const Cart = () => {
     const storedCart = JSON.parse(localStorage.getItem("cart")) || [];
     setCart(storedCart);
 
-    // Fetch discount (optional, if you have one set globally)
+    // Fetch discount if your backend provides one
     axios
       .get(`${process.env.REACT_APP_API_URL}/api/discount`)
       .then((res) => setSiteDiscount(res.data.discount || 0))
@@ -20,7 +20,7 @@ const Cart = () => {
 
   const handleQuantityChange = (id, qty) => {
     const updatedCart = cart.map((item) =>
-      item.id === id ? { ...item, qty: Number(qty) } : item
+      item.id === id ? { ...item, qty: Math.max(1, Number(qty)) } : item
     );
     setCart(updatedCart);
     localStorage.setItem("cart", JSON.stringify(updatedCart));
@@ -41,7 +41,10 @@ const Cart = () => {
         price: discountedPrice,
       };
     });
+
+    // ✅ Save to sessionStorage for checkout
     sessionStorage.setItem("checkoutCart", JSON.stringify(checkoutData));
+
     navigate("/checkout");
   };
 
@@ -105,13 +108,11 @@ const Cart = () => {
           <div className="d-flex justify-content-between mt-4">
             <h4>Subtotal: ${subtotal.toFixed(2)}</h4>
             <button className="btn btn-primary" onClick={handleCheckout}>
-              Proceed to Checkout
+              Checkout
             </button>
           </div>
         </>
       )}
     </div>
   );
-};
-
-export default Cart;
+}

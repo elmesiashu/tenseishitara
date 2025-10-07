@@ -1,145 +1,146 @@
 import React, { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import { FaInfoCircle } from "react-icons/fa";
 
-import "bootstrap/dist/css/bootstrap.min.css";
-import "bootstrap-icons/font/bootstrap-icons.css";
+const TAX_RATE = 0.1; // 10% tax
 
-// Use backend URL from env variable (works on Vercel + local)
-const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:5000";
+export default function Checkout() {
+  const [cart, setCart] = useState([]);
+  const [subTotal, setSubTotal] = useState(0);
+  const [tax, setTax] = useState(0);
+  const [total, setTotal] = useState(0);
+  const [userInfo, setUserInfo] = useState({
+    name: "",
+    email: "",
+    address: "",
+  });
 
-// Unified image path helper
-function getImageUrl(filename) {
-  if (!filename || typeof filename !== "string" || filename.trim() === "") {
-    return "/images/placeholder.png";
-  }
-  if (filename.startsWith("http")) return filename;
-
-  if (filename.startsWith("/uploads/")) {
-    return `${API_BASE}${filename}`;
-  }
-
-  if (filename.startsWith("/api/uploads/")) {
-    return `${API_BASE}${filename.replace("/api", "")}`;
-  }
-
-  return `${API_BASE}/uploads/${filename}`;
-}
-
-export default function Category({ addToCart, siteDiscount = 30 }) {
-  const { id } = useParams(); // can be category ID or anime name
-  const [products, setProducts] = useState([]);
-  const [categoryName, setCategoryName] = useState("");
-  const [animeName, setAnimeName] = useState("");
-  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!id) return;
-    setLoading(true);
+    const stored = JSON.parse(sessionStorage.getItem("checkoutCart")) || [];
+    setCart(stored);
+  }, []);
 
-    // 🔍 Detect if "id" is numeric (category ID) or a string (anime name)
-    const isAnime = isNaN(Number(id));
+  useEffect(() => {
+    if (cart.length > 0) {
+      const subtotal = cart.reduce(
+        (sum, item) => sum + (Number(item.price) || 0) * (Number(item.qty) || 1),
+        0
+      );
+      const taxValue = subtotal * TAX_RATE;
+      setSubTotal(subtotal);
+      setTax(taxValue);
+      setTotal(subtotal + taxValue);
+    }
+  }, [cart]);
 
-    const url = isAnime
-      ? `${API_BASE}/api/products/anime/${id}`
-      : `${API_BASE}/api/products/category/${id}`;
+  const handleOrder = async () => {
+    if (!userInfo.name || !userInfo.email || !userInfo.address) {
+      alert("Please fill in all fields.");
+      return;
+    }
 
-    axios
-      .get(url)
-      .then((res) => {
-        setProducts(res.data);
-        if (res.data.length > 0) {
-          if (isAnime) setAnimeName(res.data[0].anime);
-          else setCategoryName(res.data[0].categoryName);
-        }
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error("Error fetching products:", err);
-        setLoading(false);
+    try {
+      await axios.post(`${process.env.REACT_APP_API_URL}/api/orders`, {
+        user: userInfo,
+        items: cart,
+        subTotal,
+        tax,
+        total,
       });
-  }, [id]);
 
-  const handleAddToCart = (product) => {
-    const cartItem = {
-      id: product.productID,
-      name: product.productTitle,
-      price: parseFloat(product.listPrice) || 0,
-      qty: 1,
-      stock: product.stock || 10,
-      pic: product.productImage,
-      optionKey: "default",
-    };
-    addToCart(cartItem);
+      // ✅ Clear cart after successful order
+      sessionStorage.removeItem("checkoutCart");
+      localStorage.removeItem("cart");
+
+      navigate("/thankyou");
+    } catch (error) {
+      console.error("Order submission failed:", error);
+      alert("Something went wrong. Please try again.");
+    }
   };
 
-  const goToProduct = (id) => navigate(`/product/${id}`);
-
-  if (loading) {
-    return <p className="text-center mt-5">Loading products...</p>;
-  }
-
   return (
-    <div className="container py-5">
-      <h2 className="mb-4 text-center">
-        {animeName
-          ? `Anime: ${animeName}`
-          : categoryName
-          ? `Category: ${categoryName}`
-          : "Products"}
-      </h2>
+    <div className="checkout-page container py-5">
+      <h2 className="mb-4">Checkout</h2>
 
-      {products.length === 0 ? (
-        <p className="text-center text-muted">
-          No products found in this section.
-        </p>
+      {cart.length === 0 ? (
+        <p>Your cart is empty.</p>
       ) : (
         <div className="row">
-          {products.map((product) => (
-            <div key={product.productID} className="col-md-4 mb-4">
-              <div className="card h-100 product-card text-center">
-                <div className="position-relative">
-                  <img
-                    src={getImageUrl(product.productImage)}
-                    alt={product.productTitle}
-                    className="card-img-top"
-                    style={{ height: "250px", objectFit: "cover" }}
-                    onError={(e) =>
-                      (e.currentTarget.src = "/images/placeholder.png")
-                    }
-                  />
-                  <FaInfoCircle
-                    className="position-absolute top-0 end-0 m-2 text-primary"
-                    title="View Product"
-                    onClick={() => goToProduct(product.productID)}
-                    style={{ cursor: "pointer", fontSize: "1.5rem" }}
-                  />
-                </div>
-                <div className="card-body">
-                  <h5>{product.productTitle}</h5>
-                  <p>
-                    <span className="text-danger">
-                      $
-                      {(
-                        product.listPrice *
-                        (1 - siteDiscount / 100)
-                      ).toFixed(2)}
-                    </span>{" "}
-                    <del>${product.listPrice}</del>
-                  </p>
-
-                  <button
-                    className="btn btn-primary"
-                    onClick={() => handleAddToCart(product)}
-                  >
-                    Add to Cart
-                  </button>
-                </div>
+          {/* Left - User Info */}
+          <div className="col-md-6 mb-4">
+            <h4>Billing Information</h4>
+            <form>
+              <div className="mb-3">
+                <label>Name</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  value={userInfo.name}
+                  onChange={(e) =>
+                    setUserInfo({ ...userInfo, name: e.target.value })
+                  }
+                />
               </div>
-            </div>
-          ))}
+              <div className="mb-3">
+                <label>Email</label>
+                <input
+                  type="email"
+                  className="form-control"
+                  value={userInfo.email}
+                  onChange={(e) =>
+                    setUserInfo({ ...userInfo, email: e.target.value })
+                  }
+                />
+              </div>
+              <div className="mb-3">
+                <label>Address</label>
+                <textarea
+                  className="form-control"
+                  value={userInfo.address}
+                  onChange={(e) =>
+                    setUserInfo({ ...userInfo, address: e.target.value })
+                  }
+                ></textarea>
+              </div>
+            </form>
+          </div>
+
+          {/* Right - Order Summary */}
+          <div className="col-md-6">
+            <h4>Order Summary</h4>
+            <ul className="list-group mb-3">
+              {cart.map((item) => (
+                <li
+                  className="list-group-item d-flex justify-content-between align-items-center"
+                  key={item.id}
+                >
+                  <div>
+                    <strong>{item.name}</strong> × {item.qty}
+                  </div>
+                  <div>${(item.price * item.qty).toFixed(2)}</div>
+                </li>
+              ))}
+              <li className="list-group-item d-flex justify-content-between">
+                <span>Subtotal</span>
+                <strong>${subTotal.toFixed(2)}</strong>
+              </li>
+              <li className="list-group-item d-flex justify-content-between">
+                <span>Tax (10%)</span>
+                <strong>${tax.toFixed(2)}</strong>
+              </li>
+              <li className="list-group-item d-flex justify-content-between">
+                <span>Total</span>
+                <strong>${total.toFixed(2)}</strong>
+              </li>
+            </ul>
+
+            <button className="btn btn-success w-100" onClick={handleOrder}>
+              Place Order
+            </button>
+          </div>
         </div>
       )}
     </div>
