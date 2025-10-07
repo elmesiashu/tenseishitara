@@ -122,39 +122,19 @@ export default function Navbar({ user, logout, cart = [] }) {
           </div>
 
           <div className="links text-center">
-            <Link to="/admin/dashboard" className="nav-link">
-              Dashboard
-            </Link>
-            <Link to="/admin/products" className="nav-link">
-              Products
-            </Link>
-            <Link to="/admin/orders" className="nav-link">
-              Orders
-            </Link>
-            <Link to="/admin/users" className="nav-link">
-              Users
-            </Link>
-            <Link to="/admin/reviews" className="nav-link">
-              Reviews
-            </Link>
-            <Link to="/admin/promotions" className="nav-link">
-              Promotions
-            </Link>
-            <Link to="/admin/reports" className="nav-link">
-              Reports
-            </Link>
-            <Link to="/admin/settings" className="nav-link">
-              Settings
-            </Link>
+            <Link to="/admin/dashboard" className="nav-link">Dashboard</Link>
+            <Link to="/admin/products" className="nav-link">Products</Link>
+            <Link to="/admin/orders" className="nav-link">Orders</Link>
+            <Link to="/admin/users" className="nav-link">Users</Link>
+            <Link to="/admin/reviews" className="nav-link">Reviews</Link>
+            <Link to="/admin/promotions" className="nav-link">Promotions</Link>
+            <Link to="/admin/reports" className="nav-link">Reports</Link>
+            <Link to="/admin/settings" className="nav-link">Settings</Link>
 
             {user ? (
-              <button className="btn btn-danger mt-3" onClick={logout}>
-                Logout
-              </button>
+              <button className="btn btn-danger mt-3" onClick={logout}>Logout</button>
             ) : (
-              <Link to="/login" className="btn btn-primary mt-3">
-                Login
-              </Link>
+              <Link to="/login" className="btn btn-primary mt-3">Login</Link>
             )}
           </div>
 
@@ -171,9 +151,7 @@ export default function Navbar({ user, logout, cart = [] }) {
     <>
       <header className="header">
         <section className="flex">
-          <Link to="/" className="logo">
-            Tensei Shitara<span>.</span>
-          </Link>
+          <Link to="/" className="logo">Tensei Shitara<span>.</span></Link>
 
           <form>
             <input type="text" placeholder="Search..." />
@@ -191,7 +169,7 @@ export default function Navbar({ user, logout, cart = [] }) {
               <BsJournal />
             </Link>
 
-            {/* 🧺 Cart + Anime Dropdown */}
+            {/* Cart + Anime Dropdown */}
             <div
               className="icon-wrapper cart-icon"
               onMouseEnter={() => setShowAnimeDropdown(true)}
@@ -246,38 +224,22 @@ export default function Navbar({ user, logout, cart = [] }) {
         </div>
 
         <div className="links text-center">
-          <Link to="/" className="nav-link">
-            Home
+          <Link to="/" className="nav-link">Home</Link>
+          <Link to="/search" className="nav-link">Anime Series
           </Link>
-          <Link to="/search" className="nav-link">
-            Anime Series
-          </Link>
-          <Link to="/contact" className="nav-link">
-            Contact Us
-          </Link>
+          <Link to="/contact" className="nav-link">Contact Us</Link>
 
           {user ? (
             <>
-              <Link to="/order" className="nav-link">
-                Order History
-              </Link>
-              <Link to="/payment" className="nav-link">
-                Payment
-              </Link>
-              <Link to="/account" className="nav-link">
-                Account
-              </Link>
-              <Link to="/settings" className="nav-link">
-                Settings
-              </Link>
-              <button className="btn btn-danger mt-3" onClick={logout}>
-                Logout
-              </button>
+              <Link to="/order" className="nav-link">Order History</Link>
+              <Link to="/payment" className="nav-link">Payment</Link>
+              <Link to="/account" className="nav-link">Account</Link>
+              <Link to="/settings" className="nav-link">Settings</Link>
+
+              <button className="btn btn-danger mt-3" onClick={logout}>Logout</button>
             </>
           ) : (
-            <Link to="/login" className="btn btn-primary mt-3">
-              Login
-            </Link>
+            <Link to="/login" className="btn btn-primary mt-3">Login</Link>
           )}
         </div>
 
