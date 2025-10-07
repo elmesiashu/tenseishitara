@@ -93,10 +93,10 @@ export default function Cart({
 
   // Handle checkout logic
   const handleCheckout = () => {
-    if (!userLoggedIn) {
-      setError("You have to log in to process your transaction");
-      return;
-    }
+    // if (!userLoggedIn) {
+    //   setError("You have to log in to process your transaction");
+    //   return;
+    // }
     navigate("/checkout");
   };
 

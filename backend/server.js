@@ -1,49 +1,41 @@
 const express = require("express");
 const cors = require("cors");
-const path = require("path");
 const cookieParser = require("cookie-parser");
-require("dotenv").config();
+const dotenv = require("dotenv");
+const path = require("path");
 
 const authRoutes = require("./routes/auth");
-const productRoutes = require("./routes/products");
-const cartRoutes = require("./routes/cart");
-const dashboardRoutes = require("./routes/dashboard");
+const productRoutes = require("./routes/products"); // ✅ import products
 
+dotenv.config();
 const app = express();
 
-// FRONTEND ORIGIN
-const FRONTEND = process.env.FRONTEND_ORIGIN || "http://localhost:3000";
-
-// CORS
-app.use(cors({
-  origin: FRONTEND,
-  credentials: true, // allow cookies
-}));
-
-// Required to read httpOnly cookies
+// ---------- Middleware ----------
+app.use(express.json());
 app.use(cookieParser());
 
-// Log incoming requests (for debugging)
-app.use((req, res, next) => {
-  console.log("➡️", req.method, req.url);
-  next();
-});
+// ---------- Static Folder ----------
+app.use("/uploads", express.static(path.join(__dirname, "uploads"))); // ✅ serve images
 
-// Parse JSON bodies
-app.use(express.json());
+// ---------- CORS ----------
+const allowedOrigins = [
+  process.env.FRONTEND_ORIGIN || "https://tenseishitara.vercel.app",
+];
 
-// Serve uploads folder
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+app.use(
+  cors({
+    origin: allowedOrigins,
+    credentials: true, // ✅ allows cookies to be sent cross-origin
+  })
+);
 
-// Routes
+// ---------- Routes ----------
 app.use("/api/auth", authRoutes);
 app.use("/api/products", productRoutes);
-app.use("/api/cart", cartRoutes);
-app.use("/api/dashboard", dashboardRoutes);
 
-// Default route
-app.get("/", (req, res) => res.send("Backend is running!"));
+// ---------- Test route ----------
+app.get("/", (req, res) => res.send("Backend running successfully!"));
 
-// Start server
+// ---------- Start server ----------
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

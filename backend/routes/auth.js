@@ -7,7 +7,6 @@ const { v4: uuidv4 } = require("uuid");
 
 const JWT_SECRET = process.env.JWT_SECRET || "secret";
 
-// Helper: send JWT as session cookie
 function sendToken(res, user) {
   const token = jwt.sign(
     { userID: user.userID, email: user.email, isAdmin: !!user.isAdmin },
@@ -33,7 +32,7 @@ function sendToken(res, user) {
   res.json({ success: true, user: safeUser });
 }
 
-// REGISTER
+// ----------------- Register -----------------
 router.post("/register", async (req, res) => {
   try {
     const { firstname, lastname, username, password } = req.body;
@@ -52,23 +51,21 @@ router.post("/register", async (req, res) => {
       [userID, firstname, lastname, username, hashed, defaultImg]
     );
 
-    const newUser = {
+    sendToken(res, {
       userID,
       fname: firstname,
       lname: lastname,
       email: username,
       userImg: defaultImg,
       isAdmin: 0,
-    };
-
-    sendToken(res, newUser);
+    });
   } catch (err) {
     console.error("REGISTER error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
 
-// LOGIN
+// ----------------- Login -----------------
 router.post("/login", async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -89,7 +86,7 @@ router.post("/login", async (req, res) => {
   }
 });
 
-// AUTH CHECK (/me)
+// ----------------- Check session -----------------
 router.get("/me", async (req, res) => {
   try {
     const token = req.cookies?.token;
@@ -109,7 +106,7 @@ router.get("/me", async (req, res) => {
   }
 });
 
-// LOGOUT
+// -----------------Logout-----------------
 router.post("/logout", (req, res) => {
   res.clearCookie("token", {
     httpOnly: true,
