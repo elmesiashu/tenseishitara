@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 
-// Get admin info
+// ----------------- Get Admin INFO -----------------
 router.get('/admin/:userID', async (req, res) => {
   try {
     const [rows] = await db.query(

@@ -6,10 +6,10 @@ import { FaInfoCircle } from "react-icons/fa";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "bootstrap-icons/font/bootstrap-icons.css";
 
-// 🌍 Use backend URL from env variable (works on Vercel + local)
+// Use backend URL from env variable (works on Vercel + local)
 const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
-// ✅ Unified image path helper
+// Unified image path helper
 function getImageUrl(filename) {
   if (!filename || typeof filename !== "string" || filename.trim() === "") {
     return "/images/placeholder.png";
@@ -28,27 +28,36 @@ function getImageUrl(filename) {
 }
 
 export default function Category({ addToCart, siteDiscount = 30 }) {
-  const { id } = useParams();
+  const { id } = useParams(); // can be category ID or anime name
   const [products, setProducts] = useState([]);
   const [categoryName, setCategoryName] = useState("");
+  const [animeName, setAnimeName] = useState("");
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
     if (!id) return;
-
     setLoading(true);
+
+    // 🔍 Detect if "id" is numeric (category ID) or a string (anime name)
+    const isAnime = isNaN(Number(id));
+
+    const url = isAnime
+      ? `${API_BASE}/api/products/anime/${id}`
+      : `${API_BASE}/api/products/category/${id}`;
+
     axios
-      .get(`${API_BASE}/api/products/category/${id}`)
+      .get(url)
       .then((res) => {
         setProducts(res.data);
         if (res.data.length > 0) {
-          setCategoryName(res.data[0].categoryName);
+          if (isAnime) setAnimeName(res.data[0].anime);
+          else setCategoryName(res.data[0].categoryName);
         }
         setLoading(false);
       })
       .catch((err) => {
-        console.error("Error fetching category products:", err);
+        console.error("Error fetching products:", err);
         setLoading(false);
       });
   }, [id]);
@@ -75,12 +84,16 @@ export default function Category({ addToCart, siteDiscount = 30 }) {
   return (
     <div className="container py-5">
       <h2 className="mb-4 text-center">
-        {categoryName ? `Category: ${categoryName}` : "Category"}
+        {animeName
+          ? `Anime: ${animeName}`
+          : categoryName
+          ? `Category: ${categoryName}`
+          : "Products"}
       </h2>
 
       {products.length === 0 ? (
         <p className="text-center text-muted">
-          No products found in this category.
+          No products found in this section.
         </p>
       ) : (
         <div className="row">

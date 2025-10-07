@@ -10,14 +10,17 @@ import {
   BsBarChartFill,
   BsJustify,
 } from "react-icons/bs";
-import { Link } from "react-router-dom";
-
+import { Link, useNavigate } from "react-router-dom";
+import axios from "axios";
 
 const API = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
 export default function Navbar({ user, logout, cart = [] }) {
   const [darkMode, setDarkMode] = useState(false);
   const [menuSlide, setMenuSlide] = useState(false);
+  const [animeList, setAnimeList] = useState([]);
+  const [showAnimeDropdown, setShowAnimeDropdown] = useState(false);
+  const navigate = useNavigate();
 
   // Toggle dark mode
   const handleDarkModeToggle = () => setDarkMode((prev) => !prev);
@@ -36,12 +39,25 @@ export default function Navbar({ user, logout, cart = [] }) {
     document.body.classList.toggle("active", darkMode);
   }, [darkMode]);
 
+  // Fetch anime list
+  useEffect(() => {
+    axios
+      .get(`${API}/api/anime`)
+      .then((res) => setAnimeList(res.data))
+      .catch((err) => console.error("Failed to load anime list:", err));
+  }, []);
+
   // Cart counter
   const cartCount = cart.reduce((sum, item) => sum + (item.qty || 1), 0);
 
-  // Compute correct user image URL (works in deployment)
+  // Compute correct user image URL
   const getUserImage = (imgPath) =>
     imgPath ? `${API}${imgPath}` : `${API}/uploads/default.png`;
+
+  const handleAnimeSelect = (animeName) => {
+    setShowAnimeDropdown(false);
+    navigate(`/category/${encodeURIComponent(animeName)}`);
+  };
 
   // ---------------- ADMIN NAVBAR ----------------
   if (user?.isAdmin) {
@@ -61,7 +77,11 @@ export default function Navbar({ user, logout, cart = [] }) {
             </form>
 
             <div className="icons">
-              <Link className="icon-wrapper" to="/admin/dashboard" title="Dashboard">
+              <Link
+                className="icon-wrapper"
+                to="/admin/dashboard"
+                title="Dashboard"
+              >
                 <BsServer />
               </Link>
 
@@ -102,21 +122,39 @@ export default function Navbar({ user, logout, cart = [] }) {
           </div>
 
           <div className="links text-center">
-            <Link to="/admin/dashboard" className="nav-link">Dashboard</Link>
-            <Link to="/admin/products" className="nav-link">Products</Link>
-            <Link to="/admin/orders" className="nav-link">Orders</Link>
-            <Link to="/admin/users" className="nav-link">Users</Link>
-            <Link to="/admin/reviews" className="nav-link">Reviews</Link>
-            <Link to="/admin/promotions" className="nav-link">Promotions</Link>
-            <Link to="/admin/reports" className="nav-link">Reports</Link>
-            <Link to="/admin/settings" className="nav-link">Settings</Link>
+            <Link to="/admin/dashboard" className="nav-link">
+              Dashboard
+            </Link>
+            <Link to="/admin/products" className="nav-link">
+              Products
+            </Link>
+            <Link to="/admin/orders" className="nav-link">
+              Orders
+            </Link>
+            <Link to="/admin/users" className="nav-link">
+              Users
+            </Link>
+            <Link to="/admin/reviews" className="nav-link">
+              Reviews
+            </Link>
+            <Link to="/admin/promotions" className="nav-link">
+              Promotions
+            </Link>
+            <Link to="/admin/reports" className="nav-link">
+              Reports
+            </Link>
+            <Link to="/admin/settings" className="nav-link">
+              Settings
+            </Link>
 
             {user ? (
               <button className="btn btn-danger mt-3" onClick={logout}>
                 Logout
               </button>
             ) : (
-              <Link to="/login" className="btn btn-primary mt-3">Login</Link>
+              <Link to="/login" className="btn btn-primary mt-3">
+                Login
+              </Link>
             )}
           </div>
 
@@ -153,11 +191,30 @@ export default function Navbar({ user, logout, cart = [] }) {
               <BsJournal />
             </Link>
 
-            <div className="icon-wrapper cart-icon">
+            {/* 🧺 Cart + Anime Dropdown */}
+            <div
+              className="icon-wrapper cart-icon"
+              onMouseEnter={() => setShowAnimeDropdown(true)}
+              onMouseLeave={() => setShowAnimeDropdown(false)}
+            >
               <Link to="/cart" title="Cart" className="cart-link">
                 <BsBasket />
                 {cartCount > 0 && <span className="cart-count">{cartCount}</span>}
               </Link>
+
+              {showAnimeDropdown && animeList.length > 0 && (
+                <div className="anime-dropdown">
+                  {animeList.map((anime) => (
+                    <div
+                      key={anime.id}
+                      className="anime-item"
+                      onClick={() => handleAnimeSelect(anime.name)}
+                    >
+                      {anime.name}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div
@@ -189,22 +246,38 @@ export default function Navbar({ user, logout, cart = [] }) {
         </div>
 
         <div className="links text-center">
-          <Link to="/" className="nav-link">Home</Link>
-          <Link to="/search" className="nav-link">Anime Series</Link>
-          <Link to="/contact" className="nav-link">Contact Us</Link>
+          <Link to="/" className="nav-link">
+            Home
+          </Link>
+          <Link to="/search" className="nav-link">
+            Anime Series
+          </Link>
+          <Link to="/contact" className="nav-link">
+            Contact Us
+          </Link>
 
           {user ? (
             <>
-              <Link to="/order" className="nav-link">Order History</Link>
-              <Link to="/payment" className="nav-link">Payment</Link>
-              <Link to="/account" className="nav-link">Account</Link>
-              <Link to="/settings" className="nav-link">Settings</Link>
+              <Link to="/order" className="nav-link">
+                Order History
+              </Link>
+              <Link to="/payment" className="nav-link">
+                Payment
+              </Link>
+              <Link to="/account" className="nav-link">
+                Account
+              </Link>
+              <Link to="/settings" className="nav-link">
+                Settings
+              </Link>
               <button className="btn btn-danger mt-3" onClick={logout}>
                 Logout
               </button>
             </>
           ) : (
-            <Link to="/login" className="btn btn-primary mt-3">Login</Link>
+            <Link to="/login" className="btn btn-primary mt-3">
+              Login
+            </Link>
           )}
         </div>
 

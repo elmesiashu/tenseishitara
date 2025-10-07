@@ -136,6 +136,25 @@ section {
 }
 
 /* -------------------- NAVBAR SECTION -------------------- */
+form button {
+  background: var(--black-color);
+  border: none;
+  border-radius: 50%;
+  width: 2.5rem;
+  height: 2.5rem;
+  color: var(--white-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
+
+form button:hover {
+  background: var(--main-color);
+  transform: rotate(360deg);
+}
+
+/* ICON */
 .icon-wrapper {
     position: relative;
     height: 4rem;
@@ -185,19 +204,28 @@ section {
 }
 
 /* CART ICON */
-
 .cart-icon {
   position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cart-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .cart-count {
   position: absolute;
-  top: -5px;
-  right: -8px;
+  top: 4px;
+  right: 4px;
+  transform: translate(50%, -50%);
   background-color: #ff4444;
   color: white;
-  font-size: 12px;
-  font-weight: bold;
+  font-size: 11px;
+  font-weight: 700;
   border-radius: 50%;
   width: 18px;
   height: 18px;
@@ -205,6 +233,50 @@ section {
   align-items: center;
   justify-content: center;
   box-shadow: 0 0 4px rgba(0, 0, 0, 0.3);
+}
+
+/* ANIME DROPDOWN */
+.anime-dropdown {
+  position: absolute;
+  top: 3.8rem;
+  right: 0;
+  width: 180px;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+  z-index: 100;
+}
+
+.anime-item {
+  padding: 0.6rem 1rem;
+  text-align: left;
+  cursor: pointer;
+  color: var(--black-color);
+  font-weight: 500;
+}
+
+.anime-item:hover {
+  background: var(--main-color);
+  color: #fff;
+}
+
+
+/* LOGIN BUTTON */
+.btn.btn-primary {
+  background-color: var(--main-color);
+  border: none;
+  color: #fff;
+  font-weight: 600;
+  padding: 0.6rem 1.2rem;
+  border-radius: 2rem;
+  transition: all 0.3s ease;
+}
+
+.btn.btn-primary:hover {
+  background-color: var(--black-color);
+  color: var(--white-color);
 }
 
 
