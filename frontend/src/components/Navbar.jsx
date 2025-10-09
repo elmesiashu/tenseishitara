@@ -50,7 +50,8 @@ export default function Navbar({ user, logout, cart = [] }) {
   const getUserImage = (imgPath) =>
     imgPath ? `${API}${imgPath}` : `${API}/uploads/default.png`;
 
-  // -------------------- ADMIN NAVBAR --------------------
+
+    // -------------------- ADMIN NAVBAR --------------------
   if (user?.isAdmin) {
     return (
       <>
@@ -198,35 +199,47 @@ export default function Navbar({ user, logout, cart = [] }) {
         </section>
       </header>
 
+      {/* Menu settings */}
       <nav className={`navbar ${menuSlide ? "active" : ""}`}>
         <div className="user text-center">
           <img src={getUserImage(user?.userImg)} alt="User Avatar" className="rounded-circle" />
           <h5>{user?.fname || "Guest"}</h5>
         </div>
 
-        <div className="links text-center">
-          {location.pathname !== "/" && <Link to="/" className="nav-link">Home</Link>}
-          <Link to="/search" className="nav-link">Anime Series</Link>
-          <Link to="/contact" className="nav-link">Contact Us</Link>
-          {user ? (
+        <div className="links">
+          {user && (
             <>
+              <p>Accounts</p>
+              <Link to="/account" className="nav-link">Account</Link>
               <Link to="/order" className="nav-link">Order History</Link>
               <Link to="/payment" className="nav-link">Payment</Link>
-              <Link to="/account" className="nav-link">Account</Link>
-              <Link to="/settings" className="nav-link">Settings</Link>
-              <button className="btn btn-danger mt-3" onClick={logout}>Logout</button>
             </>
-          ) : (
-            <button
-              className="btn btn-primary mt-3"
-              onClick={() => {
+          )}
+
+          <p>Support & About</p>
+          <Link to="/report" className="nav-link">Report a problem</Link>
+          <Link to="/support" className="nav-link">Support</Link>
+          <Link to="/term" className="nav-link">Terms & Policies</Link>
+
+          {user && (
+            <>
+              <p>Settings</p>
+              <Link to="/cookie" className="nav-link">Cooking preferences</Link>
+              <Link to="/privacy" className="nav-link">Privacy Notice </Link>
+              <Link to="/settings" className="nav-link">Settings</Link>
+            </>
+          )}
+
+          <div className="auth-btn">
+            {user ? (
+              <button className="btn btn-danger mt-3" onClick={logout}>Logout</button>
+            ) : (
+              <button className="btn btn-primary mt-3" onClick={() => {
                 setMenuSlide(false);
                 navigate("/login");
-              }}
-            >
-              Login
-            </button>
-          )}
+              }}>Login</button>
+            )}
+          </div>
         </div>
 
         <div id="close" className="close-icon" onClick={() => setMenuSlide(false)}>

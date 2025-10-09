@@ -250,14 +250,9 @@ export default function Product({ addToCart, siteDiscount }) {
           <button
             className="btn-add-cart"
             disabled={product.stock === 0}
-            onClick={handleAddToCart}
-          >
+            onClick={handleAddToCart}>
             Add To Cart
           </button>
-
-          {addedMessage && (
-            <div className="added-message text-success mt-2">{addedMessage}</div>
-          )}
         </div>
       </div>
     </section>

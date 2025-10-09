@@ -106,18 +106,6 @@ router.post("/upload", cpUpload, async (req, res) => {
   }
 });
 
-// ----------------- DELETE product -----------------
-router.delete("/:id", async (req, res) => {
-  const productID = req.params.id;
-  try {
-    await db.query("DELETE FROM product WHERE productID=?", [productID]);
-    res.json({ message: "Deleted successfully" });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Server error" });
-  }
-});
-
 // ----------------- GET categories with image -----------------
 router.get("/categories-with-image", async (req, res) => {
   try {

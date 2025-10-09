@@ -12,8 +12,10 @@ import Search from "./pages/Search";
 import Cart from "./pages/Cart";
 import ProductInfo from "./pages/Product";
 import Category from "./pages/Category";
-import Account from "./pages/Account";
 import Checkout from "./pages/Checkout";
+
+// ---------- User Settings Pages ----------
+import Account from "./user/Account";
 
 // ---------- Admin Pages ----------
 import Products from "./admin/Products";

@@ -2,79 +2,141 @@ const express = require("express");
 const db = require("../db");
 const router = express.Router();
 
-// ----------------- Create new order -----------------
-router.post("/", async (req, res) => {
-  const { userID, items, shipping, subTotal, tax, total } = req.body;
+// Get all addresses for a user
+router.get("/:userID", (req, res) => {
+  const { userID } = req.params;
+  const sql = "SELECT * FROM addresses WHERE userID = ? ORDER BY is_primary DESC, created_at DESC";
+  db.query(sql, [userID], (err, results) => {
+    if (err) return res.status(500).json(err);
+    res.json(results);
+  });
+});
 
-  if (!userID || !items || items.length === 0) {
-    return res.status(400).json({ message: "Invalid order data" });
+// Add a new address
+router.post("/", async (req, res) => {
+  const {
+    userID,
+    fullName,
+    country,
+    address,
+    unit,
+    city,
+    state,
+    zipCde,
+    phoneNum,
+    is_primary = 0,
+  } = req.body;
+
+  if (!userID || !fullName || !country || !address || !city || !state || !zipCde || !phoneNum) {
+    return res.status(400).json({ message: "Missing required fields" });
   }
 
   const connection = await db.promise().getConnection();
-
   try {
     await connection.beginTransaction();
 
-    // Insert order
-    const [orderResult] = await connection.query(
-      `INSERT INTO orders 
-      (userID, country, first_name, last_name, address, city, state, zip_code, phone_number, email_address, subTotal, tax, total) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        userID,
-        shipping.country,
-        shipping.first_name,
-        shipping.last_name,
-        shipping.address,
-        shipping.city,
-        shipping.state,
-        shipping.zip_code,
-        shipping.phone_number,
-        shipping.email_address,
-        subTotal,
-        tax,
-        total,
-      ]
-    );
-
-    const orderID = orderResult.insertId;
-
-    // Insert order items
-    for (const item of items) {
+    if (is_primary) {
+      // Set all other addresses for this user to not primary
       await connection.query(
-        `INSERT INTO order_items (orderID, product_name, product_image, price, quantity)
-         VALUES (?, ?, ?, ?, ?)`,
-        [orderID, item.name, item.pic || null, item.price, item.qty]
+        "UPDATE addresses SET is_primary = 0 WHERE userID = ?",
+        [userID]
       );
     }
 
+    const [result] = await connection.query(
+      `INSERT INTO addresses 
+      (userID, fullName, country, address, unit, city, state, zipCde, phoneNum, is_primary, created_at) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+      [userID, fullName, country, address, unit, city, state, zipCde, phoneNum, is_primary]
+    );
+
     await connection.commit();
-    res.status(201).json({ message: "Order placed successfully", orderID });
+    res.status(201).json({ message: "Address added", addressID: result.insertId });
   } catch (err) {
     await connection.rollback();
     console.error(err);
-    res.status(500).json({ message: "Error placing order", error: err });
+    res.status(500).json({ message: "Error adding address", error: err.message });
   } finally {
     connection.release();
   }
 });
 
-// ----------------- GET USER ORDER -----------------
-router.get("/:userID", (req, res) => {
-  const { userID } = req.params;
+// Update an existing address by addressID
+router.put("/:addressID", async (req, res) => {
+  const { addressID } = req.params;
+  const {
+    fullName,
+    country,
+    address,
+    unit,
+    city,
+    state,
+    zipCde,
+    phoneNum,
+    is_primary = 0,
+  } = req.body;
 
-  const sql = `
-    SELECT o.*, oi.product_name, oi.product_image, oi.price, oi.quantity
-    FROM orders o
-    LEFT JOIN order_items oi ON o.orderID = oi.orderID
-    WHERE o.userID = ?
-    ORDER BY o.created_at DESC
-  `;
+  const connection = await db.promise().getConnection();
+  try {
+    await connection.beginTransaction();
 
-  db.query(sql, [userID], (err, results) => {
-    if (err) return res.status(500).json(err);
-    res.json(results);
-  });
+    if (is_primary) {
+      // Set all other addresses for this user to not primary
+      // Need userID first:
+      const [rows] = await connection.query("SELECT userID FROM addresses WHERE addressID = ?", [addressID]);
+      if (!rows.length) return res.status(404).json({ message: "Address not found" });
+
+      const userID = rows[0].userID;
+      await connection.query("UPDATE addresses SET is_primary = 0 WHERE userID = ?", [userID]);
+    }
+
+    await connection.query(
+      `UPDATE addresses SET
+      fullName = ?, country = ?, address = ?, unit = ?, city = ?, state = ?, zipCde = ?, phoneNum = ?, is_primary = ?
+      WHERE addressID = ?`,
+      [fullName, country, address, unit, city, state, zipCde, phoneNum, is_primary, addressID]
+    );
+
+    await connection.commit();
+    res.json({ message: "Address updated" });
+  } catch (err) {
+    await connection.rollback();
+    console.error(err);
+    res.status(500).json({ message: "Error updating address", error: err.message });
+  } finally {
+    connection.release();
+  }
+});
+
+// Set an address as primary
+router.patch("/:addressID/set-primary", async (req, res) => {
+  const { addressID } = req.params;
+  const connection = await db.promise().getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    // Get userID for this address
+    const [rows] = await connection.query("SELECT userID FROM addresses WHERE addressID = ?", [addressID]);
+    if (!rows.length) return res.status(404).json({ message: "Address not found" });
+
+    const userID = rows[0].userID;
+
+    // Reset other addresses
+    await connection.query("UPDATE addresses SET is_primary = 0 WHERE userID = ?", [userID]);
+
+    // Set this address primary
+    await connection.query("UPDATE addresses SET is_primary = 1 WHERE addressID = ?", [addressID]);
+
+    await connection.commit();
+    res.json({ message: "Primary address updated" });
+  } catch (err) {
+    await connection.rollback();
+    console.error(err);
+    res.status(500).json({ message: "Error setting primary address", error: err.message });
+  } finally {
+    connection.release();
+  }
 });
 
 module.exports = router;
