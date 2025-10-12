@@ -3,7 +3,8 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
 import "../css/auth.css";
 
-const API = process.env.REACT_APP_API_URL || "http://localhost:5000";
+// Dynamic API base (works both locally and on Vercel)
+const API = process.env.REACT_APP_API_URL || window.location.origin;
 
 export default function Login({ setUser }) {
   const [username, setUsername] = useState("");

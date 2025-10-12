@@ -1,39 +1,49 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect,useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 
-const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:5000";
+// Dynamic API base (works both locally and on Vercel)
+const API_BASE = process.env.REACT_APP_API_URL || window.location.origin;
+
+// Helper: get full image URL
+function getImageUrl(filename) {
+  if (!filename || typeof filename !== "string" || filename.trim() === "") return "/images/placeholder.png";
+  if (filename.startsWith("http")) return filename;
+  if (filename.startsWith("/uploads/")) return `${API_BASE}${filename}`;
+  return `${API_BASE}/uploads/${filename}`;
+}
+
+// Helper: capitalize
+const capitalize = (str) => (str ? str.charAt(0).toUpperCase() + str.slice(1).toLowerCase() : "");
 
 export default function Checkout({ user }) {
   const navigate = useNavigate();
 
+  // Cart & totals
   const [cart, setCart] = useState([]);
   const [subTotal, setSubTotal] = useState(0);
   const [tax, setTax] = useState(0);
   const [total, setTotal] = useState(0);
   const TAX_RATE = 0.12;
 
-  // Addresses & payments from backend
+  // Addresses & payments
   const [addresses, setAddresses] = useState([]);
   const [payments, setPayments] = useState([]);
-
-  // Selected address/payment (id or "new")
   const [selectedAddressID, setSelectedAddressID] = useState(null);
   const [selectedPaymentID, setSelectedPaymentID] = useState(null);
 
-  // New address form
+  // New address & payment
   const [newAddress, setNewAddress] = useState({
     fullName: "",
-    country: "",
+    country: "United States",
     address: "",
     unit: "",
     city: "",
     state: "",
-    zipCde: "",
+    zipCode: "",
     phoneNum: "",
     is_primary: false,
   });
 
-  // New payment form
   const [newPayment, setNewPayment] = useState({
     cardName: "",
     cardNum: "",
@@ -41,577 +51,406 @@ export default function Checkout({ user }) {
     is_primary: false,
   });
 
-  // States for country/state dropdown (simple example)
-  const countryStateData = {
+  // Loading & errors
+  const [loadingAddress, setLoadingAddress] = useState(false);
+  const [loadingPayment, setLoadingPayment] = useState(false);
+  const [orderLoading, setOrderLoading] = useState(false);
+  const [addressError, setAddressError] = useState("");
+  const [paymentError, setPaymentError] = useState("");
+  const [orderError, setOrderError] = useState("");
+
+  // Countries & states
+  const countryStateData = useMemo(() => ({
     "United States": ["California", "New York", "Texas", "Florida"],
-    Canada: ["Ontario", "Quebec", "Alberta", "British Columbia"],
+    Canada: ["Alberta", "British Columbia", "Manitoba", "New Brunswick", "Nova Scotia", "Ontario", "Prince Edward Island", "Quebec", "Saskatchewan"],
     India: ["Maharashtra", "Delhi", "Karnataka", "Tamil Nadu"],
-  };
+  }), []);
+
   const [countries] = useState(Object.keys(countryStateData));
   const [states, setStates] = useState([]);
 
-  // Helpers for loading user data
-  const fetchAddresses = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/api/addresses/${user.id}`);
-      const data = await res.json();
-      setAddresses(data);
-      // Select primary if exists
-      const primary = data.find((a) => a.is_primary);
-      setSelectedAddressID(primary ? primary.addressID : data[0]?.addressID || "new");
-    } catch (e) {
-      console.error("Failed to fetch addresses", e);
-    }
-  };
-
-  const fetchPayments = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/api/payments/${user.id}`);
-      const data = await res.json();
-      setPayments(data);
-      const primary = data.find((p) => p.is_primary);
-      setSelectedPaymentID(primary ? primary.paymentID : data[0]?.paymentID || "new");
-    } catch (e) {
-      console.error("Failed to fetch payments", e);
-    }
-  };
-
-  // Calculate totals from cart
+  // Prefill fullName from user
   useEffect(() => {
-    const saved = JSON.parse(sessionStorage.getItem("checkoutCart"));
-    if (saved) {
-      setCart(saved.cart || []);
-      setSubTotal(saved.totals?.price || 0);
-      setTax(saved.totals?.tax || 0);
-      setTotal(saved.totals?.total || 0);
-    }
-  }, []);
-
-  // Load addresses and payments on mount
-  useEffect(() => {
-    if (user?.id) {
-      fetchAddresses();
-      fetchPayments();
+    if (user?.fname && user?.lname) {
+      setNewAddress((prev) => ({ ...prev, fullName: `${capitalize(user.fname)} ${capitalize(user.lname)}` }));
     }
   }, [user]);
 
-  // Update states dropdown on country change (newAddress form)
+  // Load cart session
   useEffect(() => {
-    if (newAddress.country) {
-      setStates(countryStateData[newAddress.country] || []);
-    } else {
-      setStates([]);
-    }
-  }, [newAddress.country]);
+    const saved = JSON.parse(sessionStorage.getItem("checkoutCart")) || { cart: [], totals: {} };
+    setCart(saved.cart || []);
+    setSubTotal(saved.totals?.price || 0);
+    setTax(saved.totals?.tax || 0);
+    setTotal(saved.totals?.total || 0);
+  }, []);
 
-  // Handle new address form change
+  // Update states when country changes
+  useEffect(() => {
+    if (newAddress.country) setStates(countryStateData[newAddress.country] || []);
+    else setStates([]);
+  }, [newAddress.country, countryStateData]);
+
+  // Detect user location for default country
+  useEffect(() => {
+    if (!("geolocation" in navigator)) return;
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const res = await fetch(
+            `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&localityLanguage=en`
+          );
+          const data = await res.json();
+          if (data.countryName && countries.includes(data.countryName)) {
+            setNewAddress((prev) => ({ ...prev, country: data.countryName }));
+          }
+        } catch (err) {
+          console.error("Failed to detect country", err);
+        }
+      },
+      (err) => console.warn("Geolocation error:", err)
+    );
+  }, [countries]);
+
+
+  // Fetch addresses & payments
+  useEffect(() => {
+    if (!user?.userID) return;
+
+    const fetchAddresses = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/addresses`, { credentials: "include" });
+        const data = await res.json();
+        setAddresses(data);
+        setSelectedAddressID(data.find((a) => a.is_primary)?.addressID || data[0]?.addressID || "new");
+      } catch (err) {
+        console.error("Failed fetching addresses", err);
+      }
+    };
+
+    const fetchPayments = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/payments`, { credentials: "include" });
+        const data = await res.json();
+        setPayments(data);
+        setSelectedPaymentID(data.find((p) => p.is_primary)?.paymentID || data[0]?.paymentID || "new");
+      } catch (err) {
+        console.error("Failed fetching payments", err);
+      }
+    };
+
+    fetchAddresses();
+    fetchPayments();
+  }, [user]);
+
+  // Handle input changes
   const handleNewAddressChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setNewAddress((prev) => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : value,
-    }));
+    setNewAddress((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
+    setAddressError("");
   };
 
-  // Handle new payment form change
   const handleNewPaymentChange = (e) => {
     const { name, value, type, checked } = e.target;
     setNewPayment((prev) => ({
       ...prev,
-      [name]: type === "checkbox" ? checked : value,
+      [name]: name === "cardNum" ? value.replace(/\D/g, "").slice(0, 16) : type === "checkbox" ? checked : value,
     }));
+    setPaymentError("");
   };
 
-  // Save new address to backend
-  const saveNewAddress = async () => {
-    // Simple validation
-    const {
-      fullName,
-      country,
-      address,
-      city,
-      state,
-      zipCde,
-      phoneNum,
-    } = newAddress;
+  // Validate ZIP code
+  const isValidZip = (zip, country) => {
+    if (!zip) return false;
+    zip = zip.trim();
+    switch (country) {
+      case "United States":
+        return /^\d{5}(-\d{4})?$/.test(zip);
+      case "Canada":
+        return /^[A-Za-z]\d[A-Za-z][ -]?\d[A-Za-z]\d$/.test(zip);
+      default:
+        return zip.length >= 3;
+    }
+  };
 
-    if (!fullName || !country || !address || !city || !state || !zipCde || !phoneNum) {
-      alert("Please fill in all required address fields.");
+  // Save new address
+  const saveNewAddress = async () => {
+    setAddressError("");
+    const { fullName, country, address, city, state, zipCode, phoneNum } = newAddress;
+    if (!fullName || !country || !address || !city || !state || !zipCode || !phoneNum) {
+      setAddressError("Please fill in all required fields.");
+      return null;
+    }
+    if (!isValidZip(zipCode, country)) {
+      setAddressError(`Invalid ZIP/Postal Code for ${country}.`);
       return null;
     }
 
+    setLoadingAddress(true);
     try {
       const res = await fetch(`${API_BASE}/api/addresses`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...newAddress, userID: user.id }),
+        credentials: "include",
+        body: JSON.stringify(newAddress),
       });
       if (!res.ok) throw new Error("Failed to save address");
       const data = await res.json();
-      await fetchAddresses();
+
+      const addrRes = await fetch(`${API_BASE}/api/addresses`, { credentials: "include" });
+      setAddresses(await addrRes.json());
+
       setSelectedAddressID(data.addressID);
+      setNewAddress((prev) => ({
+        ...prev,
+        address: "",
+        unit: "",
+        city: "",
+        state: "",
+        zipCode: "",
+        phoneNum: "",
+        is_primary: false,
+      }));
+      setLoadingAddress(false);
       return data.addressID;
-    } catch (e) {
-      alert("Error saving address");
-      console.error(e);
+    } catch (err) {
+      console.error(err);
+      setAddressError("Error saving address.");
+      setLoadingAddress(false);
       return null;
     }
   };
 
-  // Save new payment card to backend
+  // Save new payment
   const saveNewPayment = async () => {
+    setPaymentError("");
     const { cardName, cardNum, expiryDate } = newPayment;
     if (!cardName || !cardNum || !expiryDate) {
-      alert("Please fill in all required payment fields.");
+      setPaymentError("Please fill in all required payment fields.");
       return null;
     }
-    // Basic card number length check
     if (cardNum.length < 12) {
-      alert("Invalid card number");
+      setPaymentError("Invalid card number");
+      return null;
+    }
+    const todayMonth = new Date().toISOString().slice(0, 7);
+    if (expiryDate < todayMonth) {
+      setPaymentError("Expiry date cannot be in the past");
       return null;
     }
 
+    setLoadingPayment(true);
     try {
-      const payload = {
-        userID: user.id,
-        cardName,
-        cardNum_last4: cardNum.slice(-4),
-        expiryDate,
-        is_primary: newPayment.is_primary,
-      };
-
+      const payload = { cardName, cardNum_last4: cardNum.slice(-4), expiryDate, is_primary: newPayment.is_primary };
       const res = await fetch(`${API_BASE}/api/payments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error("Failed to save payment");
       const data = await res.json();
-      await fetchPayments();
+
+      const payRes = await fetch(`${API_BASE}/api/payments`, { credentials: "include" });
+      setPayments(await payRes.json());
+
       setSelectedPaymentID(data.paymentID);
+      setNewPayment({ cardName: "", cardNum: "", expiryDate: "", is_primary: false });
+      setLoadingPayment(false);
       return data.paymentID;
-    } catch (e) {
-      alert("Error saving payment");
-      console.error(e);
+    } catch (err) {
+      console.error(err);
+      setPaymentError("Error saving payment.");
+      setLoadingPayment(false);
       return null;
     }
   };
 
-  // Handle making the order
+  // Reduce stock per product
+  const reduceStock = async (products) => {
+    try {
+      await Promise.all(
+        products.map((prod) =>
+          fetch(`${API_BASE}/api/products/decrement-stock`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ productID: prod.id ?? prod.productID, quantity: prod.qty }),
+          })
+        )
+      );
+    } catch (err) {
+      console.error("Failed to reduce stock", err);
+    }
+  };
+
+  // Place order
   const handleMakePayment = async (e) => {
     e.preventDefault();
+    setOrderError("");
+    setOrderLoading(true);
 
-    if (!cart || cart.length === 0) {
-      alert("Your cart is empty.");
+    if (!cart.length) {
+      setOrderError("Your cart is empty.");
+      setOrderLoading(false);
       return;
     }
 
     let addressIDToUse = selectedAddressID;
-    if (selectedAddressID === "new") {
-      // Save new address first
-      const newID = await saveNewAddress();
-      if (!newID) return; // error saving
-      addressIDToUse = newID;
-    }
-
     let paymentIDToUse = selectedPaymentID;
+
+    if (selectedAddressID === "new") {
+      const newAddrID = await saveNewAddress();
+      if (!newAddrID) return setOrderLoading(false);
+      addressIDToUse = newAddrID;
+    }
     if (selectedPaymentID === "new") {
-      // Save new payment first
-      const newID = await saveNewPayment();
-      if (!newID) return; // error saving
-      paymentIDToUse = newID;
+      const newPayID = await saveNewPayment();
+      if (!newPayID) return setOrderLoading(false);
+      paymentIDToUse = newPayID;
     }
 
-    // Place order
     try {
-      const orderData = {
-        userID: user.id,
-        items: cart,
-        addressID: addressIDToUse,
-        paymentID: paymentIDToUse,
-        total,
-      };
-
-      const res = await fetch(`${API_BASE}/api/orders`, {
+      const orderData = { userID: user.userID, items: cart, addressID: addressIDToUse, paymentID: paymentIDToUse, total };
+      const orderRes = await fetch(`${API_BASE}/api/order`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify(orderData),
       });
+      if (!orderRes.ok) throw new Error("Order placement failed");
 
-      if (!res.ok) throw new Error("Failed to place order");
-
+      await reduceStock(cart);
       sessionStorage.removeItem("checkoutCart");
-      navigate("/thankyou");
+      navigate("/order-confirmation");
     } catch (err) {
       console.error(err);
-      alert("There was an error placing your order.");
+      setOrderError("Failed to place order.");
+    } finally {
+      setOrderLoading(false);
     }
   };
 
-  // If cart empty, redirect or show message
-  if (!cart || cart.length === 0)
-    return (
-      <section className="text-center p-5">
-        <h3>Your cart is empty</h3>
-        <button className="btn btn-primary mt-3" onClick={() => navigate("/")}>
-          Go Shopping
-        </button>
-      </section>
-    );
+  const hasValidAddress = selectedAddressID && selectedAddressID !== "";
+  const hasValidPayment = selectedPaymentID && selectedPaymentID !== "";
 
   return (
-    <div className="container py-5 checkout-wrapper">
-      <h2 className="mb-4">Checkout</h2>
+    <div className="checkout container my-4">
+      <h2 className="heading"><span>Checkout</span></h2>
+      <div className="row">
+        {/* LEFT: Shipping & Payment */}
+        <div className="col-md-6">
+          {/* Shipping Address Card */}
+          <div className="card mb-4 shadow-sm">
+            <div className="card-header checkout-section-title text-white">Shipping Address</div>
+            <div className="card-body">
+              {addresses.map((a) => (
+                <div key={a.addressID} className={`form-check mb-2 p-2 border rounded ${selectedAddressID === a.addressID ? 'border-primary' : ''}`}>
+                  <input type="radio" className="form-check-input" name="address" value={a.addressID} checked={selectedAddressID === a.addressID} onChange={() => setSelectedAddressID(a.addressID)} />
+                  <label className="form-check-label">
+                    {a.fullName}, {a.address} {a.unit && `, ${a.unit}`}, {a.city}, {a.state}, {a.country}, {a.zipCode}
+                  </label>
+                  <div>
+                    <input type="checkbox" checked={a.is_primary} onChange={async () => {
+                      await fetch(`${API_BASE}/api/auth/addresses/${a.addressID}/primary`, { method: "POST", credentials: "include" });
+                      const res = await fetch(`${API_BASE}/api/auth/addresses`, { credentials: "include" });
+                      setAddresses(await res.json());
+                    }} /> Set as primary
+                  </div>
+                </div>
+              ))}
 
-      {/* Order Summary */}
-      <div className="card mb-4 shadow-sm">
-        <div className="card-header bg-primary text-white">Review Order</div>
-        <div className="card-body">
-          {cart.map((item, i) => (
-            <div key={i} className="d-flex mb-3 align-items-center">
-              <img
-                src={
-                  item.pic
-                    ? `${API_BASE}${item.pic.startsWith("/uploads/") ? item.pic : `/uploads/${item.pic}`}`
-                    : "/placeholder.png"
-                }
-                alt={item.name}
-                className="img-thumbnail me-3"
-                style={{ width: "8rem", height: "8rem", objectFit: "cover" }}
-              />
-              <div className="flex-grow-1">
-                <div className="fw-bold">{item.name}</div>
-                <div>Qty: {item.qty}</div>
-              </div>
-              <div className="fw-bold">${(item.price * item.qty).toFixed(2)}</div>
+              {/* Add New Address */}
+              {(addresses.length === 0 || selectedAddressID === "new") && (
+                <div className="border rounded p-3 mt-3 bg-light">
+                  {addressError && <div className="alert alert-danger">{addressError}</div>}
+                  <input type="text" name="fullName" placeholder="Full Name" className="form-control mb-2" value={newAddress.fullName} onChange={handleNewAddressChange} />
+                  <select name="country" className="form-select mb-2" value={newAddress.country} onChange={handleNewAddressChange}>
+                    {countries.map((c) => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                  <input type="text" name="address" placeholder="Address" className="form-control mb-2" value={newAddress.address} onChange={handleNewAddressChange} />
+                  <input type="text" name="unit" placeholder="Unit (optional)" className="form-control mb-2" value={newAddress.unit} onChange={handleNewAddressChange} />
+                  <input type="text" name="city" placeholder="City" className="form-control mb-2" value={newAddress.city} onChange={handleNewAddressChange} />
+                  <select name="state" className="form-select mb-2" value={newAddress.state} onChange={handleNewAddressChange}>
+                    {states.map((s) => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                  <input type="text" name="zipCode" placeholder="ZIP Code" className="form-control mb-2" value={newAddress.zipCode} onChange={handleNewAddressChange} />
+                  <input type="text" name="phoneNum" placeholder="Phone" className="form-control mb-2" value={newAddress.phoneNum} onChange={handleNewAddressChange} />
+                  <div className="form-check mb-2">
+                    <input type="checkbox" className="form-check-input" name="is_primary" checked={newAddress.is_primary} onChange={handleNewAddressChange} />
+                    <label className="form-check-label">Set as primary</label>
+                  </div>
+                  <button className="btn btn-success w-100 mt-2" onClick={saveNewAddress} disabled={loadingAddress}>{loadingAddress ? "Saving..." : "Save Address"}</button>
+                </div>
+              )}
             </div>
-          ))}
-          <hr />
-          <div className="d-flex justify-content-between">
-            <span>Subtotal:</span>
-            <strong>${subTotal.toFixed(2)}</strong>
           </div>
-          <div className="d-flex justify-content-between">
-            <span>Tax (12%):</span>
-            <strong>${tax.toFixed(2)}</strong>
-          </div>
-          <div className="d-flex justify-content-between mt-2">
-            <span className="fw-bold">Total:</span>
-            <strong className="fs-5">${total.toFixed(2)}</strong>
-          </div>
-        </div>
-      </div>
 
-      {/* Addresses Section */}
-      <div className="card mb-4 shadow-sm">
-        <div className="card-header bg-info text-white">Shipping Address</div>
-        <div className="card-body">
-          {addresses.length > 0 && (
-            <>
-              {addresses.map((addr) => (
-                <div key={addr.addressID} className="form-check mb-2">
-                  <input
-                    className="form-check-input"
-                    type="radio"
-                    id={`addr-${addr.addressID}`}
-                    name="address"
-                    value={addr.addressID}
-                    checked={selectedAddressID === addr.addressID}
-                    onChange={() => setSelectedAddressID(addr.addressID)}
-                  />
-                  <label className="form-check-label" htmlFor={`addr-${addr.addressID}`}>
-                    <strong>{addr.fullName}</strong>, {addr.address}
-                    {addr.unit ? `, Unit ${addr.unit}` : ""}, {addr.city}, {addr.state} {addr.zipCde},{" "}
-                    {addr.country} — {addr.phoneNum} {addr.is_primary ? "(Primary)" : ""}
-                  </label>
+          {/* Payment Method Card */}
+          {hasValidAddress && (
+            <div className="card mb-4 shadow-sm">
+              <div className="card-header checkout-section-title text-white">Payment Method</div>
+              <div className="card-body">
+                {payments.map((p) => (
+                  <div key={p.paymentID} className={`form-check mb-2 p-2 border rounded ${selectedPaymentID === p.paymentID ? 'border-primary' : ''}`}>
+                    <input type="radio" className="form-check-input" name="payment" value={p.paymentID} checked={selectedPaymentID === p.paymentID} onChange={() => setSelectedPaymentID(p.paymentID)} />
+                    <label className="form-check-label">{p.cardName} - **** **** **** {p.cardNum_last4} (Exp: {p.expiryDate})</label>
+                    <div>
+                      <input type="checkbox" checked={p.is_primary} onChange={async () => {
+                        await fetch(`${API_BASE}/api/auth/payments/${p.paymentID}/primary`, { method: "POST", credentials: "include" });
+                        const res = await fetch(`${API_BASE}/api/auth/payments`, { credentials: "include" });
+                        setPayments(await res.json());
+                      }} /> Set as primary
+                    </div>
+                  </div>
+                ))}
+
+                {(payments.length === 0 || selectedPaymentID === "new") && (
+                  <div className="border rounded p-3 mt-3 bg-light">
+                    {paymentError && <div className="alert alert-danger">{paymentError}</div>}
+                    <input type="text" name="cardName" placeholder="Name on Card" className="form-control mb-2" value={newPayment.cardName} onChange={handleNewPaymentChange} />
+                    <input type="text" name="cardNum" placeholder="Card Number" className="form-control mb-2" value={newPayment.cardNum} onChange={handleNewPaymentChange} />
+                    <input type="month" name="expiryDate" placeholder="Expiry Date" className="form-control mb-2" value={newPayment.expiryDate} onChange={handleNewPaymentChange} />
+                    <div className="form-check mb-2">
+                      <input type="checkbox" name="is_primary" checked={newPayment.is_primary} onChange={handleNewPaymentChange} className="form-check-input" />
+                      <label className="form-check-label">Set as primary</label>
+                    </div>
+                    <button className="btn btn-success w-100 mt-2" onClick={saveNewPayment} disabled={loadingPayment}>{loadingPayment ? "Saving..." : "Save Payment"}</button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* RIGHT: Review Order */}
+        <div className="col-md-6">
+          <div className="card shadow-sm">
+            <div className="card-header checkout-section-title text-white">Review Your Order</div>
+            <div className="card-body">
+              {cart.map((item) => (
+                <div key={item.id || item.productID} className="d-flex justify-content-between align-items-center border-bottom py-2">
+                  <div className="d-flex align-items-center">
+                    <img src={getImageUrl(item.pic)} alt={item.name} width="50" height="50" className="rounded me-3" />
+                    <div><strong>{item.name}</strong> × {item.qty}</div>
+                  </div>
+                  <span>${(item.price * item.qty).toFixed(2)}</span>
                 </div>
               ))}
-              <div className="form-check">
-                <input
-                  className="form-check-input"
-                  type="radio"
-                  id="addr-new"
-                  name="address"
-                  value="new"
-                  checked={selectedAddressID === "new"}
-                  onChange={() => setSelectedAddressID("new")}
-                />
-                <label className="form-check-label" htmlFor="addr-new">
-                  Add New Address
-                </label>
+              <div className="mt-3 border-top pt-3">
+                <div className="d-flex justify-content-between mb-2"><strong>Subtotal:</strong> <span>${subTotal.toFixed(2)}</span></div>
+                <div className="d-flex justify-content-between mb-2"><strong>Tax ({TAX_RATE * 100}%):</strong> <span>${tax.toFixed(2)}</span></div>
+                <div className="d-flex justify-content-between fs-5 border-top pt-2"><strong>Total:</strong> <strong>${total.toFixed(2)}</strong></div>
               </div>
-            </>
-          )}
-
-          {selectedAddressID === "new" && (
-            <form
-              className="mt-3"
-              onSubmit={(e) => {
-                e.preventDefault();
-                saveNewAddress();
-              }}
-            >
-              <div className="row g-3">
-                <div className="col-md-6">
-                  <label htmlFor="fullName" className="form-label">
-                    Full Name *
-                  </label>
-                  <input
-                    required
-                    type="text"
-                    className="form-control"
-                    id="fullName"
-                    name="fullName"
-                    value={newAddress.fullName}
-                    onChange={handleNewAddressChange}
-                  />
-                </div>
-                <div className="col-md-6">
-                  <label htmlFor="country" className="form-label">
-                    Country *
-                  </label>
-                  <select
-                    required
-                    className="form-select"
-                    id="country"
-                    name="country"
-                    value={newAddress.country}
-                    onChange={handleNewAddressChange}
-                  >
-                    <option value="">Choose...</option>
-                    {countries.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="col-12">
-                  <label htmlFor="address" className="form-label">
-                    Address *
-                  </label>
-                  <input
-                    required
-                    type="text"
-                    className="form-control"
-                    id="address"
-                    name="address"
-                    value={newAddress.address}
-                    onChange={handleNewAddressChange}
-                    placeholder="Street address"
-                  />
-                </div>
-                <div className="col-md-4">
-                  <label htmlFor="unit" className="form-label">
-                    Unit
-                  </label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    id="unit"
-                    name="unit"
-                    value={newAddress.unit}
-                    onChange={handleNewAddressChange}
-                    placeholder="Apartment, suite, etc."
-                  />
-                </div>
-                <div className="col-md-4">
-                  <label htmlFor="city" className="form-label">
-                    City *
-                  </label>
-                  <input
-                    required
-                    type="text"
-                    className="form-control"
-                    id="city"
-                    name="city"
-                    value={newAddress.city}
-                    onChange={handleNewAddressChange}
-                  />
-                </div>
-                <div className="col-md-4">
-                  <label htmlFor="state" className="form-label">
-                    State *
-                  </label>
-                  <select
-                    required
-                    className="form-select"
-                    id="state"
-                    name="state"
-                    value={newAddress.state}
-                    onChange={handleNewAddressChange}
-                  >
-                    <option value="">Choose...</option>
-                    {states.map((s) => (
-                      <option key={s} value={s}>
-                        {s}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="col-md-6">
-                  <label htmlFor="zipCde" className="form-label">
-                    Zip Code *
-                  </label>
-                  <input
-                    required
-                    type="text"
-                    className="form-control"
-                    id="zipCde"
-                    name="zipCde"
-                    value={newAddress.zipCde}
-                    onChange={handleNewAddressChange}
-                  />
-                </div>
-                <div className="col-md-6">
-                  <label htmlFor="phoneNum" className="form-label">
-                    Phone Number *
-                  </label>
-                  <input
-                    required
-                    type="tel"
-                    className="form-control"
-                    id="phoneNum"
-                    name="phoneNum"
-                    value={newAddress.phoneNum}
-                    onChange={handleNewAddressChange}
-                  />
-                </div>
-                <div className="col-12 form-check mt-2">
-                  <input
-                    className="form-check-input"
-                    type="checkbox"
-                    id="addressPrimary"
-                    name="is_primary"
-                    checked={newAddress.is_primary}
-                    onChange={handleNewAddressChange}
-                  />
-                  <label className="form-check-label" htmlFor="addressPrimary">
-                    Set as Primary Address
-                  </label>
-                </div>
-              </div>
-            </form>
-          )}
+              {orderError && <div className="alert alert-danger mt-3">{orderError}</div>}
+              {hasValidAddress && hasValidPayment && (
+                <button className="btn btn-primary w-100 mt-3" onClick={handleMakePayment} disabled={orderLoading}>
+                  {orderLoading ? "Placing Order..." : "Place Order"}
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       </div>
-
-      {/* Payments Section */}
-      <div className="card mb-4 shadow-sm">
-        <div className="card-header bg-info text-white">Payment Method</div>
-        <div className="card-body">
-          {payments.length > 0 && (
-            <>
-              {payments.map((pay) => (
-                <div key={pay.paymentID} className="form-check mb-2">
-                  <input
-                    className="form-check-input"
-                    type="radio"
-                    id={`pay-${pay.paymentID}`}
-                    name="payment"
-                    value={pay.paymentID}
-                    checked={selectedPaymentID === pay.paymentID}
-                    onChange={() => setSelectedPaymentID(pay.paymentID)}
-                  />
-                  <label className="form-check-label" htmlFor={`pay-${pay.paymentID}`}>
-                    {pay.cardName} ending in {pay.cardNum_last4} {pay.is_primary ? "(Primary)" : ""}
-                  </label>
-                </div>
-              ))}
-              <div className="form-check">
-                <input
-                  className="form-check-input"
-                  type="radio"
-                  id="pay-new"
-                  name="payment"
-                  value="new"
-                  checked={selectedPaymentID === "new"}
-                  onChange={() => setSelectedPaymentID("new")}
-                />
-                <label className="form-check-label" htmlFor="pay-new">
-                  Add New Payment Method
-                </label>
-              </div>
-            </>
-          )}
-
-          {selectedPaymentID === "new" && (
-            <form
-              className="mt-3"
-              onSubmit={(e) => {
-                e.preventDefault();
-                saveNewPayment();
-              }}
-            >
-              <div className="row g-3">
-                <div className="col-md-6">
-                  <label htmlFor="cardName" className="form-label">
-                    Name on Card *
-                  </label>
-                  <input
-                    required
-                    type="text"
-                    className="form-control"
-                    id="cardName"
-                    name="cardName"
-                    value={newPayment.cardName}
-                    onChange={handleNewPaymentChange}
-                  />
-                </div>
-                <div className="col-md-6">
-                  <label htmlFor="cardNum" className="form-label">
-                    Card Number *
-                  </label>
-                  <input
-                    required
-                    type="text"
-                    maxLength={16}
-                    minLength={12}
-                    className="form-control"
-                    id="cardNum"
-                    name="cardNum"
-                    value={newPayment.cardNum}
-                    onChange={handleNewPaymentChange}
-                    placeholder="1234 5678 9012 3456"
-                  />
-                </div>
-                <div className="col-md-6">
-                  <label htmlFor="expiryDate" className="form-label">
-                    Expiry Date *
-                  </label>
-                  <input
-                    required
-                    type="month"
-                    className="form-control"
-                    id="expiryDate"
-                    name="expiryDate"
-                    value={newPayment.expiryDate}
-                    onChange={handleNewPaymentChange}
-                    min={new Date().toISOString().slice(0, 7)} // disallow past expiry
-                  />
-                </div>
-                <div className="col-md-6 form-check d-flex align-items-center">
-                  <input
-                    className="form-check-input"
-                    type="checkbox"
-                    id="paymentPrimary"
-                    name="is_primary"
-                    checked={newPayment.is_primary}
-                    onChange={handleNewPaymentChange}
-                  />
-                  <label className="form-check-label ms-2" htmlFor="paymentPrimary">
-                    Set as Primary Payment
-                  </label>
-                </div>
-              </div>
-            </form>
-          )}
-        </div>
-      </div>
-
-      <button className="btn btn-success btn-lg w-100" onClick={handleMakePayment}>
-        Make Payment
-      </button>
     </div>
   );
 }

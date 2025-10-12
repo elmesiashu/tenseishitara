@@ -4,12 +4,8 @@ import { useLocation, useNavigate } from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "bootstrap-icons/font/bootstrap-icons.css";
 
-// Dynamically detect backend base URL
-const API =
-  process.env.REACT_APP_API_URL ||
-  (window.location.hostname === "localhost"
-    ? "http://localhost:5000"
-    : "https://ts-anime-backend.onrender.com");
+// Dynamic API base (works both locally and on Vercel)
+const API = process.env.REACT_APP_API_URL || window.location.origin;
 
 function getImageUrl(filename) {
   if (!filename) return "/placeholder.png";

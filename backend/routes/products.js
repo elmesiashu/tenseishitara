@@ -14,7 +14,6 @@ const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadDir),
   filename: (req, file, cb) => cb(null, Date.now() + "-" + file.originalname),
 });
-
 const upload = multer({ storage });
 
 // Accept multiple fields: main image + option images
@@ -26,9 +25,7 @@ const cpUpload = upload.fields([
 // ----------------- SKU generator -----------------
 function generateSKU() {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-  let sku = "";
-  for (let i = 0; i < 8; i++) sku += chars.charAt(Math.floor(Math.random() * chars.length));
-  return sku;
+  return Array.from({ length: 8 }, () => chars.charAt(Math.floor(Math.random() * chars.length))).join("");
 }
 
 // ----------------- GET all products -----------------
@@ -59,7 +56,7 @@ router.get("/", async (req, res) => {
 
     res.json(products);
   } catch (err) {
-    console.error(err);
+    console.error("Error fetching products:", err);
     res.status(500).json({ message: "Server error" });
   }
 });
@@ -87,22 +84,22 @@ router.post("/upload", cpUpload, async (req, res) => {
     // Insert product options
     const optionsArray = options ? JSON.parse(options) : [];
     if (req.files.optionImage) {
-      req.files.optionImage.forEach((file, idx) => {
+      await Promise.all(req.files.optionImage.map(async (file, idx) => {
         const opt = optionsArray[idx];
         if (opt) {
-          db.query(
+          await db.query(
             `INSERT INTO product_options (productID, optionName, optionValue, optionImage)
              VALUES (?, ?, ?, ?)`,
             [productID, opt.optionName, opt.optionValue, file.filename]
           );
         }
-      });
+      }));
     }
 
     res.json({ message: "✅ Product uploaded successfully", productID });
   } catch (err) {
     console.error("Upload failed:", err);
-    res.status(500).json({ message: "Upload failed" });
+    res.status(500).json({ message: "Upload failed", error: err.message });
   }
 });
 
@@ -140,24 +137,20 @@ router.get("/:id", async (req, res) => {
 
   try {
     const [products] = await db.query(
-      `SELECT 
-         p.productID, p.productTitle, p.productDescription, p.listPrice, p.stock, p.productImage,
-         c.categoryID, c.categoryName
+      `SELECT p.productID, p.productTitle, p.productDescription, p.listPrice, p.stock, p.productImage,
+              c.categoryID, c.categoryName
        FROM product AS p
        INNER JOIN category AS c ON p.categoryID = c.categoryID
        WHERE p.productID = ?`,
       [productID]
     );
 
-    if (products.length === 0) {
-      return res.status(404).json({ message: "Product not found" });
-    }
+    if (!products.length) return res.status(404).json({ message: "Product not found" });
 
     const product = products[0];
     product.productImage = product.productImage ? `/uploads/${product.productImage}` : null;
     product.discountedPrice = (product.listPrice * (1 - discount)).toFixed(2);
 
-    // Fetch options
     const [optionsRows] = await db.query(
       `SELECT optionName, optionValue, optionImage FROM product_options WHERE productID = ?`,
       [productID]
@@ -183,9 +176,8 @@ router.get("/category/:categoryID", async (req, res) => {
 
   try {
     const [rows] = await db.query(
-      `SELECT 
-         p.productID, p.productTitle, p.productDescription, p.listPrice, p.stock, p.productImage,
-         c.categoryID, c.categoryName
+      `SELECT p.productID, p.productTitle, p.productDescription, p.listPrice, p.stock, p.productImage,
+              c.categoryID, c.categoryName
        FROM product AS p
        INNER JOIN category AS c ON p.categoryID = c.categoryID
        WHERE c.categoryID = ?`,
@@ -209,42 +201,29 @@ router.get("/category/:categoryID", async (req, res) => {
 router.get("/packages", async (req, res) => {
   try {
     const [rows] = await db.query(`
-      SELECT 
-        p.productID, p.productTitle, p.listPrice, p.productImage,
-        a.animeID, a.animeName
+      SELECT p.productID, p.productTitle, p.listPrice, p.productImage,
+             a.animeID, a.animeName
       FROM product AS p
       INNER JOIN anime AS a ON p.anime = a.animeID
     `);
 
-    // Group by anime
     const animeGroups = {};
-    for (const p of rows) {
+    rows.forEach(p => {
       if (!animeGroups[p.animeID]) animeGroups[p.animeID] = [];
       animeGroups[p.animeID].push(p);
-    }
+    });
 
     const packages = [];
 
     for (const animeID in animeGroups) {
       const group = animeGroups[animeID];
-
-      // Only create bundle if at least 2 items exist for that anime
       if (group.length >= 2) {
-        // Limit to a max of 3–4 items per bundle for visual clarity
         const selectedItems = group.slice(0, 3);
-
-        const total = selectedItems.reduce(
-          (sum, item) => sum + parseFloat(item.listPrice || 0),
-          0
-        );
-
-        const discountRate = 0.15; // 15% off bundle
+        const total = selectedItems.reduce((sum, i) => sum + parseFloat(i.listPrice || 0), 0);
+        const discountRate = 0.15;
         const discountedPrice = +(total * (1 - discountRate)).toFixed(2);
 
-        // Use the first available product image
-        const mainImage =
-          selectedItems.find((i) => i.productImage)?.productImage ||
-          "default.png";
+        const mainImage = selectedItems.find(i => i.productImage)?.productImage || "default.png";
 
         packages.push({
           animeID: parseInt(animeID),
@@ -260,11 +239,9 @@ router.get("/packages", async (req, res) => {
 
     res.json(packages);
   } catch (err) {
-    console.error(err);
+    console.error("Error fetching packages:", err);
     res.status(500).json({ message: "Server error" });
   }
 });
-
-
 
 module.exports = router;

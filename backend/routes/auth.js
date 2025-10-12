@@ -1,12 +1,14 @@
 const express = require("express");
 const router = express.Router();
-const pool = require("../db");
+const db = require("../db");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { v4: uuidv4 } = require("uuid");
+const authMiddleware = require("../middleware/auth"); // JWT middleware
 
 const JWT_SECRET = process.env.JWT_SECRET || "secret";
 
+// ----------------- Helper: send JWT -----------------
 function sendToken(res, user) {
   const token = jwt.sign(
     { userID: user.userID, email: user.email, isAdmin: !!user.isAdmin },
@@ -36,17 +38,18 @@ function sendToken(res, user) {
 router.post("/register", async (req, res) => {
   try {
     const { firstname, lastname, username, password } = req.body;
-    if (!firstname || !lastname || !username || !password)
+    if (!firstname || !lastname || !username || !password) {
       return res.status(400).json({ error: "Missing fields" });
+    }
 
-    const [rows] = await pool.query("SELECT userID FROM user WHERE email = ?", [username]);
+    const [rows] = await db.query("SELECT userID FROM user WHERE email = ?", [username]);
     if (rows.length) return res.status(409).json({ error: "Email already in use" });
 
     const hashed = await bcrypt.hash(password, 10);
     const userID = uuidv4().replace(/-/g, "").slice(0, 11);
     const defaultImg = "/uploads/default.png";
 
-    await pool.query(
+    await db.query(
       "INSERT INTO user (userID, fname, lname, email, password, userImg) VALUES (?, ?, ?, ?, ?, ?)",
       [userID, firstname, lastname, username, hashed, defaultImg]
     );
@@ -69,15 +72,14 @@ router.post("/register", async (req, res) => {
 router.post("/login", async (req, res) => {
   try {
     const { username, password } = req.body;
-    if (!username || !password)
-      return res.status(400).json({ error: "Missing credentials" });
+    if (!username || !password) return res.status(400).json({ error: "Missing credentials" });
 
-    const [rows] = await pool.query("SELECT * FROM user WHERE email = ?", [username]);
+    const [rows] = await db.query("SELECT * FROM user WHERE email = ?", [username]);
+    if (!rows.length) return res.status(401).json({ error: "Invalid credentials" });
+
     const user = rows[0];
-    if (!user) return res.status(401).json({ error: "Invalid credentials" });
-
-    const ok = await bcrypt.compare(password, user.password);
-    if (!ok) return res.status(401).json({ error: "Invalid credentials" });
+    const match = await bcrypt.compare(password, user.password);
+    if (!match) return res.status(401).json({ error: "Invalid credentials" });
 
     sendToken(res, user);
   } catch (err) {
@@ -87,15 +89,11 @@ router.post("/login", async (req, res) => {
 });
 
 // ----------------- Check session -----------------
-router.get("/me", async (req, res) => {
+router.get("/me", authMiddleware, async (req, res) => {
   try {
-    const token = req.cookies?.token;
-    if (!token) return res.status(401).json({ error: "No token" });
-
-    const payload = jwt.verify(token, JWT_SECRET);
-    const [rows] = await pool.query(
+    const [rows] = await db.query(
       "SELECT userID, fname, lname, email, userImg, isAdmin FROM user WHERE userID = ?",
-      [payload.userID]
+      [req.user.userID]
     );
 
     if (!rows.length) return res.status(404).json({ error: "User not found" });
@@ -106,7 +104,7 @@ router.get("/me", async (req, res) => {
   }
 });
 
-// -----------------Logout-----------------
+// ----------------- Logout -----------------
 router.post("/logout", (req, res) => {
   res.clearCookie("token", {
     httpOnly: true,

@@ -1,12 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 
-// Backend URL
-const API_BASE =
-  process.env.REACT_APP_API_URL ||
-  (window.location.hostname === "localhost"
-    ? "http://localhost:5000"
-    : "https://ts-anime-backend.onrender.com");
+// Dynamic API base (works both locally and on Vercel)
+const API_BASE = process.env.REACT_APP_API_URL || window.location.origin;
 
 export default function Product({ addToCart, siteDiscount }) {
   const { id } = useParams();

@@ -3,12 +3,19 @@ const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const dotenv = require("dotenv");
-const path = require("path");
 const session = require("express-session");
+const path = require("path");
 
+// ---------- Routes ----------
 const authRoutes = require("./routes/auth");
 const productRoutes = require("./routes/products");
+const dashboardRoutes = require("./routes/dashboard");
+const orderRoutes = require("./routes/order");
+const cartRoutes = require("./routes/cart");
+const addressesRoutes = require("./routes/addresses");
+const paymentsRoutes = require("./routes/payments");
 
+// ---------- Config ----------
 dotenv.config();
 const app = express();
 
@@ -16,14 +23,11 @@ const app = express();
 app.use(express.json());
 app.use(cookieParser());
 
-// ---------- Static Folder ----------
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
-
 // ---------- CORS ----------
 const allowedOrigins = [
   process.env.FRONTEND_ORIGIN || "https://tenseishitara.vercel.app",
-  "http://localhost:5173", // Vite dev
-  "http://localhost:3000", // CRA dev
+  "http://localhost:5173",
+  "http://localhost:3000",
 ];
 
 app.use(
@@ -33,27 +37,40 @@ app.use(
   })
 );
 
-// ---------- Session (optional but recommended if using sessions) ----------
+// ---------- Session ----------
 app.use(
   session({
     secret: process.env.SESSION_SECRET || "secret",
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: process.env.NODE_ENV === "production", 
+      secure: process.env.NODE_ENV === "production",
       httpOnly: true,
       sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
     },
   })
 );
 
-// ---------- Routes ----------
+// ---------- Static folder for uploads ----------
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+// ---------- API Routes ----------
 app.use("/api/auth", authRoutes);
 app.use("/api/products", productRoutes);
+app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/order", orderRoutes);
+app.use("/api/cart", cartRoutes);
+app.use("/api/addresses", addressesRoutes);
+app.use("/api/payments", paymentsRoutes);
 
-// ---------- Test route ----------
+// ---------- Test Route ----------
 app.get("/", (req, res) => {
   res.send("Backend running successfully!");
+});
+
+// ---------- 404 for undefined API routes ----------
+app.use("/api", (req, res) => {
+  res.status(404).json({ message: "API route not found" });
 });
 
 // ---------- Start server ----------

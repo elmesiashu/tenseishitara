@@ -3,12 +3,8 @@ import axios from 'axios';
 import { Link, useNavigate } from 'react-router-dom';
 import '../css/auth.css';
 
-// Automatically switch between localhost and deployed backend
-const API =
-  process.env.REACT_APP_API_URL ||
-  (window.location.hostname === 'localhost'
-    ? 'http://localhost:5000'
-    : 'https://ts-anime-backend.onrender.com');
+// Dynamic API base (works both locally and on Vercel)
+const API  = process.env.REACT_APP_API_URL || window.location.origin;
 
 export default function Register() {
   const [firstname, setFirstname] = useState('');

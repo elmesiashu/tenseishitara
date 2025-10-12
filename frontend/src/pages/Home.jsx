@@ -12,7 +12,7 @@ import "swiper/css/navigation";
 import "swiper/css/pagination";
 
 // Dynamic API base (works both locally and on Vercel)
-const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:5000";
+const API_BASE = process.env.REACT_APP_API_URL || window.location.origin;
 
 // Get image path
 function getImageUrl(filename) {
@@ -21,7 +21,6 @@ function getImageUrl(filename) {
   }
   if (filename.startsWith("http")) return filename;
   if (filename.startsWith("/api/uploads/")) {
-    return `${API_BASE}${filename.replace("/api", "")}`;
   }
   if (filename.startsWith("/uploads/")) {
     return `${API_BASE}${filename}`;

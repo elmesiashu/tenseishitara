@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
-const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:5000";
+// Dynamic API base (works both locally and on Vercel)
+const API_BASE = process.env.REACT_APP_API_URL || window.location.origin;
 
 function getImageUrl(filename) {
   if (!filename) return "/placeholder.png";
@@ -13,11 +14,7 @@ function getImageUrl(filename) {
 
 function makeItemKey(item) {
   const pid =
-    item.id ??
-    item.productID ??
-    item.productId ??
-    item.productid ??
-    item.productID;
+    item.id ?? item.productID ?? item.productId ?? item.productid ?? item.productID;
   const optionName = item.optionName ?? "default";
   const optionValue = item.optionValue ?? "default";
   return `${pid}-${optionName}-${optionValue}`;
@@ -84,8 +81,13 @@ export default function Cart({
     });
   };
 
-  // ✅ Updated checkout handler
   const handleCheckout = () => {
+    if (!userLoggedIn) {
+      alert("Please log in first to proceed to checkout.");
+      navigate("/login");
+      return;
+    }
+
     const checkoutData = {
       cart,
       totals,
