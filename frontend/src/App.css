@@ -889,33 +889,81 @@ footer {
   font-family: "Poppins", sans-serif;
 }
 
+/* Section Titles */
 .checkout-section-title {
   background-color: #007bff;
   font-size: 1.5rem;
   font-weight: 600;
 }
 
+/* Card Style */
 .checkout .card {
   border-radius: 12px;
 }
 
+/* Button Rounding */
 .checkout .btn {
   border-radius: 10px;
 }
 
-.save-address-btn {
-  font-size: 1.3rem;
+/* Primary Address/Payment Highlight */
+.address-card.primary,
+.payment-card.primary {
+  background-color: #e6f9ec;
+  border: 2px solid #28a745;
 }
 
-.save-address-btn:hover{
-  background-color: #29C5F6;
+/* Text inside cards */
+.address-card strong {
+  font-size: 1.1rem;
 }
 
+/* General input/select size */
 .checkout input,
 .checkout select {
   font-size: 1.3rem;
 }
 
-.check-primary {
-  font-size: 1.3rem;
+/* Category Buttons (Edit / Remove) */
+.category-btn {
+  border: 1px solid #999;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  padding: 4px 10px;
+  margin-left: 5px;
+  background-color: #f8f9fa;
+  transition: all 0.2s ease;
 }
+
+.category-btn:hover {
+  background-color: #29C5F6;
+  color: white;
+  border-color: #29C5F6;
+}
+
+.checkout-section-title {
+          background-color: var(--primary-color, #007bff);
+          font-weight: 600;
+        }
+        .address-card.primary,
+        .payment-card.primary {
+          border: 2px solid #28a745 !important;
+          background-color: #e9f7ef;
+        }
+        .category-btn {
+          background-color: #007bff;
+          color: white;
+          border: none;
+          border-radius: 8px;
+          padding: 5px 10px;
+          margin-left: 6px;
+          transition: 0.3s ease;
+        }
+        .category-btn:hover {
+          background-color: #0056b3;
+        }
+        .form-control,
+        .form-select {
+          font-size: 0.95rem;
+        }

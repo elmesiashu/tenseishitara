@@ -1,13 +1,16 @@
 const express = require("express");
 const router = express.Router();
-const db = require("../db"); 
+const db = require("../db");
 const authMiddleware = require("../middleware/auth"); // JWT middleware
 
 // ----------------- GET all payments -----------------
 router.get("/", authMiddleware, async (req, res) => {
   try {
     const userID = req.user.userID;
-    const [payments] = await db.query("SELECT * FROM payments WHERE userID = ?", [userID]);
+    const [payments] = await db.query(
+      "SELECT paymentID, cardName, cardNum_last4, expiryDate, is_primary, created_at FROM payments WHERE userID = ?",
+      [userID]
+    );
     res.json(payments);
   } catch (err) {
     console.error("GET PAYMENTS error:", err);
@@ -18,21 +21,39 @@ router.get("/", authMiddleware, async (req, res) => {
 // ----------------- CREATE new payment -----------------
 router.post("/", authMiddleware, async (req, res) => {
   try {
-    const { cardName, cardNum_last4, expiryDate, is_primary = 0 } = req.body;
+    let { cardName, cardNum, cvv, expiryDate, is_primary = 0 } = req.body;
     const userID = req.user.userID;
 
-    if (!cardName || !cardNum_last4 || !expiryDate) {
+    if (!cardName || !cardNum || !cvv || !expiryDate) {
       return res.status(400).json({ message: "Missing required fields" });
     }
 
+    // Card type validation (Visa/MC)
+    const isVisa = /^4/.test(cardNum);
+    const isMastercard = /^5[1-5]/.test(cardNum);
+    if (!isVisa && !isMastercard) {
+      return res.status(400).json({ message: "Only Visa or MasterCard are accepted." });
+    }
+
+    if (!/^\d{16}$/.test(cardNum)) {
+      return res.status(400).json({ message: "Card number must be 16 digits." });
+    }
+
+    if (!/^\d{3}$/.test(cvv)) {
+      return res.status(400).json({ message: "CVV must be 3 digits." });
+    }
+
+    const cardNum_last4 = cardNum.slice(-4);
+
+    // If new card is primary, unset all others
     if (is_primary) {
       await db.query("UPDATE payments SET is_primary = 0 WHERE userID = ?", [userID]);
     }
 
     const [result] = await db.query(
-      `INSERT INTO payments (userID, cardName, cardNum_last4, expiryDate, is_primary, created_at)
-       VALUES (?, ?, ?, ?, ?, NOW())`,
-      [userID, cardName, cardNum_last4, expiryDate, is_primary]
+      `INSERT INTO payments (userID, cardName, cardNum_last4, cardNum, cvv, expiryDate, is_primary, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
+      [userID, cardName, cardNum_last4, cardNum, cvv, expiryDate, is_primary]
     );
 
     res.status(201).json({ message: "Payment added", paymentID: result.insertId });
@@ -48,18 +69,13 @@ router.post("/:id/primary", authMiddleware, async (req, res) => {
   const userID = req.user.userID;
 
   try {
-    // Reset all to not primary
     await db.query("UPDATE payments SET is_primary = 0 WHERE userID = ?", [userID]);
-
-    // Set selected as primary
     await db.query("UPDATE payments SET is_primary = 1 WHERE paymentID = ? AND userID = ?", [paymentID, userID]);
-
     res.json({ message: "Primary payment updated." });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Failed to set primary payment." });
   }
 });
-
 
 module.exports = router;
