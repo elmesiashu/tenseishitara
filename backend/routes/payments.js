@@ -30,7 +30,6 @@ router.get("/", authMiddleware, async (req, res) => {
   }
 });
 
-
 // ----------------- CREATE new payment -----------------
 router.post("/", authMiddleware, async (req, res) => {
   try {
@@ -112,6 +111,5 @@ router.delete("/:id", authMiddleware, async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
-
 
 module.exports = router;

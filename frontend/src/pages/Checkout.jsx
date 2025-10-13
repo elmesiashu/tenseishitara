@@ -10,16 +10,12 @@ function getImageUrl(filename) {
   }
   if (filename.startsWith("http")) return filename;
 
-
-  const base = API_BASE.replace(/\/$/, "");          
-  const path = filename.replace(/^\/+/, "");        
-
+  const base = API_BASE.replace(/\/$/, "");
+  const path = filename.replace(/^\/+/, "");
   return `${base}/${path}`;
 }
 
-
-
-export default function Category({ user }) {
+export default function Checkout({ user }) {
   const navigate = useNavigate();
 
   // Cart
@@ -148,9 +144,16 @@ export default function Category({ user }) {
       try {
         const res = await fetch(`${API_BASE}/api/payments`, { credentials: "include" });
         const data = await res.json();
-        setPayments(data);
-        if (!data.length) setSelectedPaymentID("new");
-        else setSelectedPaymentID(data.find((p) => p.is_primary)?.paymentID || data[0].paymentID);
+        // Map card type based on first digit of last4 (approximation)
+        const dataWithType = data.map(p => {
+          let cardType = null;
+          if (/^4/.test(p.cardNum_last4)) cardType = "visa";
+          else if (/^[2-5]/.test(p.cardNum_last4)) cardType = "mastercard"; // approximation
+          return { ...p, cardType };
+        });
+        setPayments(dataWithType);
+        if (!dataWithType.length) setSelectedPaymentID("new");
+        else setSelectedPaymentID(dataWithType.find((p) => p.is_primary)?.paymentID || dataWithType[0].paymentID);
       } catch (err) {
         console.error("Failed fetching payments", err);
       }
@@ -276,7 +279,13 @@ export default function Category({ user }) {
       if (!res.ok) throw new Error("Failed to save payment");
       const data = await res.json();
       const payRes = await fetch(`${API_BASE}/api/payments`, { credentials: "include" });
-      setPayments(await payRes.json());
+      const dataWithType = (await payRes.json()).map(p => {
+        let cardType = null;
+        if (/^4/.test(p.cardNum_last4)) cardType = "visa";
+        else if (/^[2-5]/.test(p.cardNum_last4)) cardType = "mastercard";
+        return { ...p, cardType };
+      });
+      setPayments(dataWithType);
       setSelectedPaymentID(data.paymentID);
       setNewPayment({ cardName: "", cardNum: "", cvv: "", expiryDate: "", is_primary: false });
       setShowNewPayment(false);
@@ -294,7 +303,13 @@ export default function Category({ user }) {
     try {
       await fetch(`${API_BASE}/api/payments/${id}`, { method: "DELETE", credentials: "include" });
       const res = await fetch(`${API_BASE}/api/payments`, { credentials: "include" });
-      setPayments(await res.json());
+      const dataWithType = (await res.json()).map(p => {
+        let cardType = null;
+        if (/^4/.test(p.cardNum_last4)) cardType = "visa";
+        else if (/^[2-5]/.test(p.cardNum_last4)) cardType = "mastercard";
+        return { ...p, cardType };
+      });
+      setPayments(dataWithType);
     } catch (err) {
       console.error("Error deleting payment:", err);
     }
@@ -309,7 +324,13 @@ export default function Category({ user }) {
   const setPrimaryPayment = async (id) => {
     await fetch(`${API_BASE}/api/payments/${id}/primary`, { method: "POST", credentials: "include" });
     const res = await fetch(`${API_BASE}/api/payments`, { credentials: "include" });
-    setPayments(await res.json());
+    const dataWithType = (await res.json()).map(p => {
+      let cardType = null;
+      if (/^4/.test(p.cardNum_last4)) cardType = "visa";
+      else if (/^[2-5]/.test(p.cardNum_last4)) cardType = "mastercard";
+      return { ...p, cardType };
+    });
+    setPayments(dataWithType);
   };
 
   const reduceStock = async (products) => {
@@ -345,7 +366,12 @@ export default function Category({ user }) {
     }
     try {
       const orderData = { userID: user.userID, items: cart, addressID: addressIDToUse, paymentID: paymentIDToUse, total };
-      const orderRes = await fetch(`${API_BASE}/api/order`, { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify(orderData) });
+      const orderRes = await fetch(`${API_BASE}/api/order`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(orderData),
+      });
       if (!orderRes.ok) throw new Error("Order placement failed");
       await reduceStock(cart);
       sessionStorage.removeItem("checkoutCart");
@@ -449,15 +475,11 @@ export default function Category({ user }) {
                     <div className="d-flex justify-content-between align-items-center">
                       <div className="d-flex align-items-center gap-2">
                         {/* Card logo */}
-                        {/^4/.test(p.cardNum) && (
-                          <img src={getImageUrl('/uploads/visa.png')} alt="Visa" style={{ width: 50, height: 'auto' }} />
-                        )}
-                        {/^(5[1-5])/.test(p.cardNum) && (
-                          <img src={getImageUrl('/uploads/mastercard.png')} alt="MasterCard" style={{ width: 50, height: 'auto' }} />
-                        )}
+                        {p.cardType === "visa" && <img src={getImageUrl('/uploads/visa.png')} alt="Visa" style={{ width: 50, height: 'auto' }} />}
+                        {p.cardType === "mastercard" && <img src={getImageUrl('/uploads/mastercard.png')} alt="MasterCard" style={{ width: 50, height: 'auto' }} />}
                         <div>
                           <strong>{p.cardName}</strong><br />
-                          **** **** **** {p.cardNum_last4 || (p.cardNum ? p.cardNum.slice(-4) : "----")} <br />
+                          **** **** **** {p.cardNum_last4 || "----"} <br />
                           Exp: {p.expiryDate || "N/A"}
                         </div>
                       </div>
@@ -480,24 +502,6 @@ export default function Category({ user }) {
                     </div>
                   </div>
                 ))}
-                {sortedPayments.map((p) => {
-  const isVisa = /^4/.test(p.cardNum);
-  const isMastercard = /^5[1-5]/.test(p.cardNum);
-
-  console.log("Card Number:", p.cardNum);
-  console.log("Visa?", isVisa, "MasterCard?", isMastercard);
-  console.log("Visa Image URL:", getImageUrl("/uploads/visa.png"));
-  console.log("MasterCard Image URL:", getImageUrl("/uploads/mastercard.png"));
-
-  return (
-    <div key={p.paymentID}>
-      {isVisa && <img src={getImageUrl("/uploads/visa.png")} alt="Visa" style={{ width: 50 }} />}
-      {isMastercard && <img src={getImageUrl("/uploads/mastercard.png")} alt="MasterCard" style={{ width: 50 }} />}
-      <div>{p.cardNum}</div>
-    </div>
-  );
-})}
-
                 <div className="form-check mb-2">
                   <input type="checkbox" checked={showNewPayment} onChange={() => setShowNewPayment(!showNewPayment)} className="form-check-input" />
                   <label className="form-check-label">Add New Payment</label>
@@ -565,7 +569,5 @@ export default function Category({ user }) {
         </div>
       </div>
     </div>
-
-    
   );
 }
