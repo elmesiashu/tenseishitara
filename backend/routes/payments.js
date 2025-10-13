@@ -8,22 +8,11 @@ router.get("/", authMiddleware, async (req, res) => {
   try {
     const userID = req.user.userID;
     const [payments] = await db.query(
-      "SELECT paymentID, cardName, cardNum_last4, expiryDate, is_primary, created_at, cardNum FROM payments WHERE userID = ?",
+      "SELECT paymentID, cardName, cardNum_last4, expiryDate, is_primary, created_at, cardType FROM payments WHERE userID = ?",
       [userID]
     );
 
-    // Map card type
-    const paymentsWithType = payments.map(p => {
-      let cardType = null;
-      if (p.cardNum?.startsWith("4")) cardType = "visa";
-      else if (/^5[1-5]/.test(p.cardNum)) cardType = "mastercard";
-      return { ...p, cardType };
-    });
-
-    // Remove full card number before sending to frontend
-    paymentsWithType.forEach(p => delete p.cardNum);
-
-    res.json(paymentsWithType);
+    res.json(payments);
   } catch (err) {
     console.error("GET PAYMENTS error:", err);
     res.status(500).json({ message: "Server error" });
@@ -40,12 +29,11 @@ router.post("/", authMiddleware, async (req, res) => {
       return res.status(400).json({ message: "Missing required fields" });
     }
 
-    // Card type validation (Visa/MC)
-    const isVisa = /^4/.test(cardNum);
-    const isMastercard = /^5[1-5]/.test(cardNum);
-    if (!isVisa && !isMastercard) {
-      return res.status(400).json({ message: "Only Visa or MasterCard are accepted." });
-    }
+    // Card type validation & determine type
+    let cardType = null;
+    if (/^4/.test(cardNum)) cardType = "visa";
+    else if (/^5[1-5]/.test(cardNum)) cardType = "mastercard";
+    else return res.status(400).json({ message: "Only Visa or MasterCard are accepted." });
 
     if (!/^\d{16}$/.test(cardNum)) {
       return res.status(400).json({ message: "Card number must be 16 digits." });
@@ -63,12 +51,12 @@ router.post("/", authMiddleware, async (req, res) => {
     }
 
     const [result] = await db.query(
-      `INSERT INTO payments (userID, cardName, cardNum_last4, cardNum, cvv, expiryDate, is_primary, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
-      [userID, cardName, cardNum_last4, cardNum, cvv, expiryDate, is_primary]
+      `INSERT INTO payments (userID, cardName, cardNum_last4, cardNum, cvv, expiryDate, is_primary, cardType, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+      [userID, cardName, cardNum_last4, cardNum, cvv, expiryDate, is_primary, cardType]
     );
 
-    res.status(201).json({ message: "Payment added", paymentID: result.insertId });
+    res.status(201).json({ message: "Payment added", paymentID: result.insertId, cardType });
   } catch (err) {
     console.error("POST PAYMENT error:", err);
     res.status(500).json({ message: "Server error" });
