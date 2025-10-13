@@ -945,25 +945,33 @@ footer {
 .checkout-section-title {
           background-color: var(--primary-color, #007bff);
           font-weight: 600;
-        }
-        .address-card.primary,
-        .payment-card.primary {
-          border: 2px solid #28a745 !important;
-          background-color: #e9f7ef;
-        }
-        .category-btn {
-          background-color: #007bff;
-          color: white;
-          border: none;
-          border-radius: 8px;
-          padding: 5px 10px;
-          margin-left: 6px;
-          transition: 0.3s ease;
-        }
-        .category-btn:hover {
-          background-color: #0056b3;
-        }
-        .form-control,
-        .form-select {
-          font-size: 0.95rem;
-        }
+}
+
+.address-card.primary,
+.payment-card.primary {
+  border: 2px solid #28a745 !important;
+  background-color: #e9f7ef;
+}
+
+.category-btn {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 5px 10px;
+  margin-left: 6px;
+  transition: 0.3s ease;
+}
+
+.category-btn:hover {
+  background-color: #0056b3;
+}
+
+.form-control,
+.form-select {
+  font-size: 0.95rem;
+}
+
+.primary-click {
+  color: green;
+}

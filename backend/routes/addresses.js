@@ -61,5 +61,26 @@ router.post("/:id/primary", authMiddleware, async (req, res) => {
   }
 });
 
+// ----------------- DELETE address -----------------
+router.delete("/:id", authMiddleware, async (req, res) => {
+  const addressID = req.params.id;
+  const userID = req.user.userID;
+
+  try {
+    const [result] = await db.query(
+      "DELETE FROM addresses WHERE addressID = ? AND userID = ?",
+      [addressID, userID]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: "Address not found or not authorized" });
+    }
+
+    res.json({ message: "Address deleted successfully" });
+  } catch (err) {
+    console.error("DELETE ADDRESS error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
 
 module.exports = router;

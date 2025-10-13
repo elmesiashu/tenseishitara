@@ -8,15 +8,28 @@ router.get("/", authMiddleware, async (req, res) => {
   try {
     const userID = req.user.userID;
     const [payments] = await db.query(
-      "SELECT paymentID, cardName, cardNum_last4, expiryDate, is_primary, created_at FROM payments WHERE userID = ?",
+      "SELECT paymentID, cardName, cardNum_last4, expiryDate, is_primary, created_at, cardNum FROM payments WHERE userID = ?",
       [userID]
     );
-    res.json(payments);
+
+    // Map card type
+    const paymentsWithType = payments.map(p => {
+      let cardType = null;
+      if (p.cardNum?.startsWith("4")) cardType = "visa";
+      else if (/^5[1-5]/.test(p.cardNum)) cardType = "mastercard";
+      return { ...p, cardType };
+    });
+
+    // Remove full card number before sending to frontend
+    paymentsWithType.forEach(p => delete p.cardNum);
+
+    res.json(paymentsWithType);
   } catch (err) {
     console.error("GET PAYMENTS error:", err);
     res.status(500).json({ message: "Server error" });
   }
 });
+
 
 // ----------------- CREATE new payment -----------------
 router.post("/", authMiddleware, async (req, res) => {
@@ -77,5 +90,28 @@ router.post("/:id/primary", authMiddleware, async (req, res) => {
     res.status(500).json({ message: "Failed to set primary payment." });
   }
 });
+
+// ----------------- DELETE payment -----------------
+router.delete("/:id", authMiddleware, async (req, res) => {
+  const paymentID = req.params.id;
+  const userID = req.user.userID;
+
+  try {
+    const [result] = await db.query(
+      "DELETE FROM payments WHERE paymentID = ? AND userID = ?",
+      [paymentID, userID]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: "Payment not found or not authorized" });
+    }
+
+    res.json({ message: "Payment deleted successfully" });
+  } catch (err) {
+    console.error("DELETE PAYMENT error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 
 module.exports = router;
