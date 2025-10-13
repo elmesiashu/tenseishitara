@@ -3,31 +3,21 @@ import { useNavigate } from "react-router-dom";
 
 const API_BASE = process.env.REACT_APP_API_URL || window.location.origin;
 
-// Get image path
 function getImageUrl(filename) {
-  if (!filename || typeof filename !== "string" || filename.trim() === "") {
-    return "/images/placeholder.png";
-  }
+  if (!filename || typeof filename !== "string" || filename.trim() === "") return "/images/placeholder.png";
   if (filename.startsWith("http")) return filename;
-
-
-  const base = API_BASE.replace(/\/$/, "");          
-  const path = filename.replace(/^\/+/, "");        
-
-  return `${base}/${path}`;
+  if (filename.startsWith("/uploads/")) return `${API_BASE}${filename}`;
+  return `${API_BASE}/uploads/${filename}`;
 }
 
-
-
-export default function Category({ user }) {
+export default function Checkout({ user }) {
   const navigate = useNavigate();
 
-  // Cart
+  // Cart & totals
   const [cart, setCart] = useState([]);
   const [subTotal, setSubTotal] = useState(0);
   const [tax, setTax] = useState(0);
   const [total, setTotal] = useState(0);
-  const TAX_RATE = 0.12;
 
   // Addresses & Payments
   const [addresses, setAddresses] = useState([]);
@@ -56,32 +46,40 @@ export default function Category({ user }) {
     cvv: "",
     expiryDate: "",
     is_primary: false,
+    cardType: "",
   });
 
   const [loadingAddress, setLoadingAddress] = useState(false);
   const [loadingPayment, setLoadingPayment] = useState(false);
   const [orderLoading, setOrderLoading] = useState(false);
+
   const [addressError, setAddressError] = useState("");
   const [paymentError, setPaymentError] = useState("");
   const [orderError, setOrderError] = useState("");
 
+  // Country/State/City data
   const countryStateData = {
     "United States": {
-      California: ["Los Angeles", "San Francisco", "San Diego"],
-      "New York": ["New York City", "Buffalo", "Rochester"],
-      Texas: ["Houston", "Dallas", "Austin"],
-      Florida: ["Miami", "Orlando", "Tampa"],
+      California: ["Los Angeles", "San Francisco", "San Diego", "Sacramento", "San Jose"],
+      "New York": ["New York City", "Buffalo", "Rochester", "Albany", "Syracuse"],
+      Texas: ["Houston", "Dallas", "Austin", "San Antonio", "Fort Worth"],
+      Florida: ["Miami", "Orlando", "Tampa", "Jacksonville", "Tallahassee"],
+      Illinois: ["Chicago", "Springfield", "Aurora", "Naperville", "Peoria"],
+      Pennsylvania: ["Philadelphia", "Pittsburgh", "Harrisburg", "Allentown", "Erie"]
     },
     Canada: {
-      Alberta: ["Calgary", "Edmonton"],
-      Ontario: ["Toronto", "Ottawa", "Hamilton"],
-      Quebec: ["Montreal", "Quebec City"],
+      Alberta: ["Calgary", "Edmonton", "Red Deer", "Lethbridge", "St. Albert"],
+      "British Columbia": ["Vancouver", "Victoria", "Surrey", "Burnaby", "Kelowna", "Richmond",
+          "Abbotsford", "Coquitlam", "Kamloops", "Nanaimo", "Langley", "Port Coquitlam"],
+      Manitoba: ["Winnipeg", "Brandon", "Thompson", "Portage la Prairie", "Selkirk"],
+      Ontario: ["Toronto", "Ottawa", "Hamilton", "London", "Kitchener"],
+      Quebec: ["Montreal", "Quebec City", "Laval", "Gatineau", "Longueuil"]
     },
     India: {
-      Maharashtra: ["Mumbai", "Pune", "Nagpur"],
-      Delhi: ["New Delhi"],
-      Karnataka: ["Bangalore", "Mysore"],
-    },
+      Maharashtra: ["Mumbai", "Pune", "Nagpur", "Nashik", "Aurangabad"],
+      Delhi: ["New Delhi", "Dwarka", "Rohini", "Karol Bagh", "Connaught Place"],
+      Karnataka: ["Bangalore", "Mysore", "Mangalore", "Hubli", "Belgaum"]
+    }
   };
 
   const [countries] = useState(Object.keys(countryStateData));
@@ -90,10 +88,10 @@ export default function Category({ user }) {
 
   const capitalize = (str) => (str ? str.charAt(0).toUpperCase() + str.slice(1).toLowerCase() : "");
 
+  // Prefill full name
   useEffect(() => {
     if (user?.fname && user?.lname) {
-      const fullName = `${capitalize(user.fname)} ${capitalize(user.lname)}`;
-      setNewAddress((prev) => ({ ...prev, fullName }));
+      setNewAddress((prev) => ({ ...prev, fullName: `${capitalize(user.fname)} ${capitalize(user.lname)}` }));
     }
   }, [user]);
 
@@ -106,15 +104,14 @@ export default function Category({ user }) {
     setTotal(saved.totals?.total || 0);
   }, []);
 
+  // Update states & cities when country/state changes
   useEffect(() => {
     if (newAddress.country) {
       const stateList = Object.keys(countryStateData[newAddress.country] || {});
       setStates(stateList);
-      if (stateList.length) {
-        const cityList = countryStateData[newAddress.country][stateList[0]] || [];
-        setCities(cityList);
-        setNewAddress((prev) => ({ ...prev, state: stateList[0], city: cityList[0] || "" }));
-      }
+      const cityList = stateList.length ? countryStateData[newAddress.country][stateList[0]] || [] : [];
+      setCities(cityList);
+      setNewAddress((prev) => ({ ...prev, state: stateList[0] || "", city: cityList[0] || "" }));
     }
   }, [newAddress.country]);
 
@@ -122,42 +119,34 @@ export default function Category({ user }) {
     if (newAddress.country && newAddress.state) {
       const cityList = countryStateData[newAddress.country][newAddress.state] || [];
       setCities(cityList);
-      if (!cityList.includes(newAddress.city)) {
-        setNewAddress((prev) => ({ ...prev, city: cityList[0] || "" }));
-      }
-    } else setCities([]);
+      if (!cityList.includes(newAddress.city)) setNewAddress((prev) => ({ ...prev, city: cityList[0] || "" }));
+    }
   }, [newAddress.state]);
 
   // Fetch addresses & payments
   useEffect(() => {
     if (!user?.userID) return;
 
-    const fetchAddresses = async () => {
+    const fetchData = async () => {
       try {
-        const res = await fetch(`${API_BASE}/api/addresses`, { credentials: "include" });
-        const data = await res.json();
-        setAddresses(data);
-        if (!data.length) setSelectedAddressID("new");
-        else setSelectedAddressID(data.find((a) => a.is_primary)?.addressID || data[0].addressID);
+        const addrRes = await fetch(`${API_BASE}/api/addresses`, { credentials: "include" });
+        const addrData = await addrRes.json();
+        setAddresses(addrData);
+        setSelectedAddressID(addrData.find((a) => a.is_primary)?.addressID || addrData[0]?.addressID || null);
+
+        const payRes = await fetch(`${API_BASE}/api/payments`, { credentials: "include" });
+        const payData = await payRes.json();
+        setPayments(payData);
+        setSelectedPaymentID(payData.find((p) => p.is_primary)?.paymentID || payData[0]?.paymentID || null);
+
+        if (!addrData.length) setShowNewAddress(true);
+        if (!payData.length) setShowNewPayment(true);
       } catch (err) {
-        console.error("Failed fetching addresses", err);
+        console.error(err);
       }
     };
 
-    const fetchPayments = async () => {
-      try {
-        const res = await fetch(`${API_BASE}/api/payments`, { credentials: "include" });
-        const data = await res.json();
-        setPayments(data);
-        if (!data.length) setSelectedPaymentID("new");
-        else setSelectedPaymentID(data.find((p) => p.is_primary)?.paymentID || data[0].paymentID);
-      } catch (err) {
-        console.error("Failed fetching payments", err);
-      }
-    };
-
-    fetchAddresses();
-    fetchPayments();
+    fetchData();
   }, [user]);
 
   const handleNewAddressChange = (e) => {
@@ -166,36 +155,28 @@ export default function Category({ user }) {
   };
 
   const handleNewPaymentChange = (e) => {
-    const { name, value, type } = e.target;
+    const { name, value, type, checked } = e.target;
     if (name === "cardNum") setNewPayment((prev) => ({ ...prev, cardNum: value.replace(/\D/g, "").slice(0, 16) }));
     else if (name === "cvv") setNewPayment((prev) => ({ ...prev, cvv: value.replace(/\D/g, "").slice(0, 3) }));
-    else setNewPayment((prev) => ({ ...prev, [name]: type === "checkbox" ? e.target.checked : value }));
+    else setNewPayment((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
   };
 
   const isValidZip = (zip, country) => {
     if (!zip) return false;
     zip = zip.trim();
     switch (country) {
-      case "United States":
-        return /^\d{5}(-\d{4})?$/.test(zip);
-      case "Canada":
-        return /^[A-Za-z]\d[A-Za-z][ -]?\d[A-Za-z]\d$/.test(zip);
-      default:
-        return zip.length >= 3;
+      case "United States": return /^\d{5}(-\d{4})?$/.test(zip);
+      case "Canada": return /^[A-Za-z]\d[A-Za-z][ -]?\d[A-Za-z]\d$/.test(zip);
+      default: return zip.length >= 3;
     }
   };
 
+  // ----- Address/Payment CRUD -----
   const saveNewAddress = async () => {
     setAddressError("");
-    const { fullName, country, address, city, state, zipCode, phoneNum, is_primary } = newAddress;
-    if (!fullName || !country || !address || !city || !state || !zipCode || !phoneNum) {
-      setAddressError("Please fill in all required fields.");
-      return null;
-    }
-    if (!isValidZip(zipCode, country)) {
-      setAddressError(`Invalid ZIP/Postal Code for ${country}.`);
-      return null;
-    }
+    const { fullName, country, address, city, state, zipCode, phoneNum } = newAddress;
+    if (!fullName || !country || !address || !city || !state || !zipCode || !phoneNum) return setAddressError("Please fill in all required fields.");
+    if (!isValidZip(zipCode, country)) return setAddressError(`Invalid ZIP/Postal Code for ${country}.`);
 
     setLoadingAddress(true);
     try {
@@ -205,99 +186,66 @@ export default function Category({ user }) {
         credentials: "include",
         body: JSON.stringify(newAddress),
       });
-      if (!res.ok) throw new Error("Failed to save address");
+      if (!res.ok) throw new Error();
       const data = await res.json();
       const addrRes = await fetch(`${API_BASE}/api/addresses`, { credentials: "include" });
       setAddresses(await addrRes.json());
       setSelectedAddressID(data.addressID);
       setNewAddress({ ...newAddress, address: "", unit: "", zipCode: "", phoneNum: "", is_primary: false });
       setShowNewAddress(false);
-      setLoadingAddress(false);
+      setShowNewPayment(true);
       return data.addressID;
-    } catch (err) {
+    } catch {
       setAddressError("Error saving address.");
+    } finally {
       setLoadingAddress(false);
-      return null;
     }
-  };
-
-  const deleteAddress = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this address?")) return;
-    try {
-      await fetch(`${API_BASE}/api/addresses/${id}`, { method: "DELETE", credentials: "include" });
-      const res = await fetch(`${API_BASE}/api/addresses`, { credentials: "include" });
-      setAddresses(await res.json());
-    } catch (err) {
-      console.error("Error deleting address:", err);
-    }
-  };
-
-  const handleEditAddress = (address) => {
-    setNewAddress({ ...address });
-    setShowNewAddress(true);
-    setSelectedAddressID(address.addressID);
   };
 
   const saveNewPayment = async () => {
     setPaymentError("");
-    const { cardName, cardNum, cvv, expiryDate, is_primary } = newPayment;
-
-    if (!cardName || !cardNum || !cvv || !expiryDate) {
-      setPaymentError("Please fill in all required fields (name, number, CVV, expiry).");
-      return null;
-    }
+    const { cardName, cardNum, cvv, expiryDate } = newPayment;
+    if (!cardName || !cardNum || !cvv || !expiryDate) return setPaymentError("Please fill in all required fields.");
 
     const isVisa = /^4/.test(cardNum);
     const isMastercard = /^5[1-5]/.test(cardNum);
-    if (!isVisa && !isMastercard) {
-      setPaymentError("Only Visa and MasterCard cards are accepted.");
-      return null;
-    }
-
-    if (!/^\d{3}$/.test(cvv)) {
-      setPaymentError("CVV must be 3 digits for Visa/MasterCard.");
-      return null;
-    }
-
-    if (cardNum.length !== 16) {
-      setPaymentError("Card number must be 16 digits.");
-      return null;
-    }
+    if (!isVisa && !isMastercard) return setPaymentError("Only Visa and MasterCard cards are accepted.");
+    if (cvv.length !== 3 || cardNum.length !== 16) return setPaymentError("Invalid CVV or card number.");
 
     setLoadingPayment(true);
     try {
-      const payload = { cardName, cardNum, cvv, expiryDate, is_primary };
+      const payload = { ...newPayment, cardType: isVisa ? "Visa" : "MasterCard" };
       const res = await fetch(`${API_BASE}/api/payments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error("Failed to save payment");
+      if (!res.ok) throw new Error();
       const data = await res.json();
       const payRes = await fetch(`${API_BASE}/api/payments`, { credentials: "include" });
       setPayments(await payRes.json());
       setSelectedPaymentID(data.paymentID);
-      setNewPayment({ cardName: "", cardNum: "", cvv: "", expiryDate: "", is_primary: false });
+      setNewPayment({ cardName: "", cardNum: "", cvv: "", expiryDate: "", is_primary: false, cardType: "" });
       setShowNewPayment(false);
-      setLoadingPayment(false);
       return data.paymentID;
-    } catch (err) {
+    } catch {
       setPaymentError("Error saving payment.");
+    } finally {
       setLoadingPayment(false);
-      return null;
     }
   };
 
+  const deleteAddress = async (id) => {
+    await fetch(`${API_BASE}/api/addresses/${id}`, { method: "DELETE", credentials: "include" });
+    const res = await fetch(`${API_BASE}/api/addresses`, { credentials: "include" });
+    setAddresses(await res.json());
+  };
+
   const deletePayment = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this payment method?")) return;
-    try {
-      await fetch(`${API_BASE}/api/payments/${id}`, { method: "DELETE", credentials: "include" });
-      const res = await fetch(`${API_BASE}/api/payments`, { credentials: "include" });
-      setPayments(await res.json());
-    } catch (err) {
-      console.error("Error deleting payment:", err);
-    }
+    await fetch(`${API_BASE}/api/payments/${id}`, { method: "DELETE", credentials: "include" });
+    const res = await fetch(`${API_BASE}/api/payments`, { credentials: "include" });
+    setPayments(await res.json());
   };
 
   const setPrimaryAddress = async (id) => {
@@ -326,31 +274,38 @@ export default function Category({ user }) {
     e.preventDefault();
     setOrderError("");
     setOrderLoading(true);
-    if (!cart.length) {
-      setOrderError("Your cart is empty.");
-      setOrderLoading(false);
-      return;
-    }
+
+    if (!cart.length) return setOrderError("Your cart is empty.");
+
     let addressIDToUse = selectedAddressID;
     let paymentIDToUse = selectedPaymentID;
+
     if (selectedAddressID === "new") {
       const newAddrID = await saveNewAddress();
       if (!newAddrID) return setOrderLoading(false);
       addressIDToUse = newAddrID;
     }
+
     if (selectedPaymentID === "new") {
       const newPayID = await saveNewPayment();
       if (!newPayID) return setOrderLoading(false);
       paymentIDToUse = newPayID;
     }
+
     try {
       const orderData = { userID: user.userID, items: cart, addressID: addressIDToUse, paymentID: paymentIDToUse, total };
-      const orderRes = await fetch(`${API_BASE}/api/order`, { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify(orderData) });
-      if (!orderRes.ok) throw new Error("Order placement failed");
+      const orderRes = await fetch(`${API_BASE}/api/order`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(orderData),
+      });
+      if (!orderRes.ok) throw new Error("Order failed");
+
       await reduceStock(cart);
       sessionStorage.removeItem("checkoutCart");
-      navigate("/order-confirmation");
-    } catch (err) {
+      navigate("/thankyou");
+    } catch {
       setOrderError("Failed to place order.");
     } finally {
       setOrderLoading(false);
@@ -360,154 +315,167 @@ export default function Category({ user }) {
   const hasValidAddress = selectedAddressID && selectedAddressID !== "";
   const hasValidPayment = selectedPaymentID && selectedPaymentID !== "";
 
-  // Sort addresses and payments: primary first
   const sortedAddresses = [...addresses].sort((a, b) => b.is_primary - a.is_primary);
   const sortedPayments = [...payments].sort((a, b) => b.is_primary - a.is_primary);
 
-  return (
-    <div className="checkout container my-4">
-      <h2 className="heading"><span>Checkout</span></h2>
-      <div className="row">
-        {/* LEFT COLUMN */}
-        <div className="col-md-6">
-          {/* Address Section */}
-          <div className="card mb-4 shadow-sm">
-            <div className="card-header bg-primary text-white">Shipping Address</div>
-            <div className="card-body">
-              {sortedAddresses.map((a) => (
-                <div key={a.addressID} className={`border p-3 mb-2 rounded ${a.is_primary ? "primary" : ""}`}>
+ return (
+  <div className="checkout container my-4">
+    <h2 className="heading"><span>Checkout</span></h2>
+    <div className="row">
+      {/* LEFT COLUMN */}
+      <div className="col-md-6">
+
+        {/* --- ADDRESS SECTION --- */}
+        <div className="card mb-4 shadow-sm">
+          <div className="card-header bg-primary text-white">Shipping Address</div>
+          <div className="card-body">
+            {sortedAddresses.map((a) => (
+              <div key={a.addressID} className={`border p-3 mb-2 rounded ${a.is_primary ? "primary" : ""}`}>
+                <div>
+                  <strong>{a.fullName}</strong><br />
+                  {a.unit && `${a.unit} - `}{a.address}<br />
+                  {a.city}, {a.state}<br />
+                  {a.country}, {a.zipCode}<br />
+                  {a.phoneNum}
+                </div>
+                <div className="mt-2 d-flex justify-content-between align-items-center">
                   <div>
-                    <strong>{a.fullName}</strong><br />
-                    {a.unit && `${a.unit} - `}{a.address}<br />
-                    {a.city}, {a.state}, {a.country}<br />
-                    {a.zipCode}<br />
-                    📞 {a.phoneNum}
+                    <input
+                      type="radio"
+                      name="address"
+                      checked={selectedAddressID === a.addressID}
+                      onChange={() => {
+                        setSelectedAddressID(a.addressID);
+                        setShowNewAddress(false); // auto-hide new address form
+                      }}
+                    /> Select
+                    <input
+                      type="checkbox"
+                      checked={a.is_primary}
+                      onChange={() => setPrimaryAddress(a.addressID)}
+                      className="ms-2"
+                      style={{ accentColor: 'green' }}
+                    /> Primary
                   </div>
-                  <div className="mt-2 d-flex justify-content-between align-items-center">
-                    <div>
-                      <input
-                        type="radio"
-                        name="address"
-                        checked={selectedAddressID === a.addressID}
-                        onChange={() => setSelectedAddressID(a.addressID)}
-                      /> Select
-                      <input
-                        type="checkbox"
-                        checked={a.is_primary}
-                        onChange={() => setPrimaryAddress(a.addressID)}
-                        className="ms-2"
-                        style={{ accentColor: 'green' }}
-                      /> Primary
-                    </div>
-                    <div>
-                      <button className="category-btn me-1" onClick={() => handleEditAddress(a)}>Edit</button>
-                      <button className="category-btn" onClick={() => deleteAddress(a.addressID)}>Remove</button>
-                    </div>
+                  <div>
+                    <button className="category-btn me-1" onClick={() => { setNewAddress({ ...a }); setShowNewAddress(true); setSelectedAddressID(a.addressID); }}>Edit</button>
+                    <button className="category-btn" onClick={() => deleteAddress(a.addressID)}>Remove</button>
                   </div>
                 </div>
-              ))}
+              </div>
+            ))}
+            {/* ADD NEW ADDRESS BUTTON */}
               <div className="form-check mb-2">
                 <input type="checkbox" checked={showNewAddress} onChange={() => setShowNewAddress(!showNewAddress)} className="form-check-input" />
-                <label className="form-check-label">Add New Address</label>
+                <label className="form-check-label">Add a new address</label>
               </div>
-              {showNewAddress && (
-                <div className="border p-3 rounded bg-light">
-                  {addressError && <div className="alert alert-danger">{addressError}</div>}
-                  <input type="text" name="fullName" placeholder="Full Name" className="form-control mb-2" value={newAddress.fullName} onChange={handleNewAddressChange} />
-                  <select name="country" className="form-select mb-2" value={newAddress.country} onChange={handleNewAddressChange}>
-                    {countries.map(c => <option key={c}>{c}</option>)}
-                  </select>
-                  <select name="state" className="form-select mb-2" value={newAddress.state} onChange={handleNewAddressChange}>
-                    {states.map(s => <option key={s}>{s}</option>)}
-                  </select>
-                  <select name="city" className="form-select mb-2" value={newAddress.city} onChange={handleNewAddressChange}>
-                    {cities.map(c => <option key={c}>{c}</option>)}
-                  </select>
-                  <input type="text" name="address" placeholder="Address" className="form-control mb-2" value={newAddress.address} onChange={handleNewAddressChange} />
-                  <input type="text" name="unit" placeholder="Unit/Suite" className="form-control mb-2" value={newAddress.unit} onChange={handleNewAddressChange} />
-                  <input type="text" name="zipCode" placeholder="ZIP / Postal Code" className="form-control mb-2" value={newAddress.zipCode} onChange={handleNewAddressChange} />
-                  <input type="text" name="phoneNum" placeholder="Phone Number" className="form-control mb-2" value={newAddress.phoneNum} onChange={handleNewAddressChange} />
-                  <div className="form-check mb-2">
-                    <input type="checkbox" name="is_primary" checked={newAddress.is_primary} onChange={handleNewAddressChange} className="form-check-input" />
-                    <label className="form-check-label">Set as primary</label>
+            {/* NEW ADDRESS FORM */}
+            {showNewAddress && (
+              <div className="border p-3 rounded bg-light">
+                {addressError && <div className="alert alert-danger">{addressError}</div>}
+                <input type="text" name="fullName" placeholder="Full Name" className="form-control mb-2" value={newAddress.fullName} onChange={handleNewAddressChange} />
+                <select name="country" className="form-select mb-2" value={newAddress.country} onChange={handleNewAddressChange}>
+                  {countries.map(c => <option key={c}>{c}</option>)}
+                </select>
+                <select name="state" className="form-select mb-2" value={newAddress.state} onChange={handleNewAddressChange}>
+                  {states.map(s => <option key={s}>{s}</option>)}
+                </select>
+                <select name="city" className="form-select mb-2" value={newAddress.city} onChange={handleNewAddressChange}>
+                  {cities.map(c => <option key={c}>{c}</option>)}
+                </select>
+                <input type="text" name="address" placeholder="Address" className="form-control mb-2" value={newAddress.address} onChange={handleNewAddressChange} />
+                <input type="text" name="unit" placeholder="Unit/Suite" className="form-control mb-2" value={newAddress.unit} onChange={handleNewAddressChange} />
+                <input type="text" name="zipCode" placeholder="ZIP / Postal Code" className="form-control mb-2" value={newAddress.zipCode} onChange={handleNewAddressChange} />
+                <input type="text" name="phoneNum" placeholder="Phone Number" className="form-control mb-2" value={newAddress.phoneNum} onChange={handleNewAddressChange} />
+                <div className="form-check mb-2">
+                  <input type="checkbox" name="is_primary" checked={newAddress.is_primary} onChange={handleNewAddressChange} className="form-check-input" />
+                  <label className="form-check-label">Set as Primary</label>
+                </div>
+                <button className="btn btn-success w-100" onClick={saveNewAddress} disabled={loadingAddress}>
+                  {loadingAddress ? "Saving..." : "Save Address"}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* --- PAYMENT SECTION --- */}
+        {hasValidAddress && (
+          <div className="card mb-4 shadow-sm">
+            <div className="card-header bg-primary text-white">Payment Method</div>
+            <div className="card-body">
+              {sortedPayments.map((p) => {
+                const cardType = (p.cardType || "").toLowerCase();
+                const last4 = p.cardNum_last4 || "----";
+                const brand = cardType ? cardType.charAt(0).toUpperCase() + cardType.slice(1) : "Card";
+                let logoSrc = cardType === "visa" ? "/visa.png" : cardType === "mastercard" ? "/mastercard.png" : null;
+
+                return (
+                  <div key={p.paymentID} className={`border p-3 mb-2 rounded d-flex align-items-center ${p.is_primary ? "primary" : ""}`}>
+                    <div style={{ width: 50, marginRight: 10 }}>
+                      {logoSrc ? <img src={logoSrc} alt={brand} style={{ width: "100%" }} /> : <div style={{ width: 50, height: 36, background: "#f1f1f1", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 4 }}><small>{brand}</small></div>}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <strong>{p.cardName || "Cardholder"}</strong> - {brand}<br />
+                      **** **** **** {last4}<br />
+                      Expires {p.expiryDate || "N/A"}
+                    </div>
+                    <div className="d-flex flex-column align-items-end">
+                      <div className="mb-1">
+                        <input
+                          type="radio"
+                          name="payment"
+                          checked={selectedPaymentID === p.paymentID}
+                          onChange={() => {
+                            setSelectedPaymentID(p.paymentID);
+                            setShowNewPayment(false); // auto-hide new payment form
+                          }}
+                        /> Select
+                        <input
+                          type="checkbox"
+                          checked={Boolean(p.is_primary)}
+                          onChange={() => setPrimaryPayment(p.paymentID)}
+                          className="ms-2"
+                          style={{ accentColor: "green" }}
+                        /> Primary
+                      </div>
+                      <div>
+                        <button className="category-btn" onClick={() => deletePayment(p.paymentID)}>Remove</button>
+                      </div>
+                    </div>
                   </div>
-                  <button className="btn btn-success w-100" onClick={saveNewAddress} disabled={loadingAddress}>
-                    {loadingAddress ? "Saving..." : "Add Address"}
+                );
+              })}
+
+              {/* ADD NEW PAYMENT BUTTON */}
+                <div className="form-check mb-2">
+                  <input type="checkbox" checked={showNewPayment} onChange={() => setShowNewPayment(!showNewPayment)} className="form-check-input" />
+                  <label className="form-check-label">Add New Payment</label>
+                </div>
+
+              {/* NEW PAYMENT FORM */}
+              {showNewPayment && (
+                <div className="border p-3 rounded bg-light">
+                  {paymentError && <div className="alert alert-danger">{paymentError}</div>}
+                  <input type="text" name="cardName" placeholder="Cardholder Name" className="form-control mb-2" value={newPayment.cardName} onChange={handleNewPaymentChange} />
+                  <input type="text" name="cardNum" placeholder="Card Number" className="form-control mb-2" value={newPayment.cardNum} onChange={handleNewPaymentChange} />
+                  <input type="text" name="expiryDate" placeholder="MM/YYYY" className="form-control mb-2" value={newPayment.expiryDate} onChange={handleNewPaymentChange} />
+                  <input type="text" name="cvv" placeholder="CVV" className="form-control mb-2" value={newPayment.cvv} onChange={handleNewPaymentChange} />
+                  <div className="form-check mb-2">
+                    <input type="checkbox" name="is_primary" checked={newPayment.is_primary} onChange={handleNewPaymentChange} className="form-check-input" />
+                    <label className="form-check-label">Set as Primary</label>
+                  </div>
+                  <button className="btn btn-success w-100" onClick={saveNewPayment} disabled={loadingPayment}>
+                    {loadingPayment ? "Saving..." : "Save Payment"}
                   </button>
                 </div>
               )}
             </div>
           </div>
+        )}
+      </div>
 
-          {/* Payment Section */}
-          {hasValidAddress && (
-            <div className="card mb-4 shadow-sm">
-              <div className="card-header bg-primary text-white">Payment Method</div>
-              <div className="card-body">
-                {sortedPayments.map((p) => (
-                  <div key={p.paymentID} className={`border p-3 mb-2 rounded ${p.is_primary ? "primary" : ""}`}>
-                    <div className="d-flex justify-content-between align-items-center">
-                      <div className="d-flex align-items-center gap-2">
-                        {/* Card logo */}
-                        {/^4/.test(p.cardNum) && (
-                          <img src={getImageUrl('/uploads/visa.png')} alt="Visa" style={{ width: 50, height: 'auto' }} />
-                        )}
-                        {/^(5[1-5])/.test(p.cardNum) && (
-                          <img src={getImageUrl('/uploads/mastercard.png')} alt="MasterCard" style={{ width: 50, height: 'auto' }} />
-                        )}
-                        <div>
-                          <strong>{p.cardName}</strong><br />
-                          **** **** **** {p.cardNum_last4 || (p.cardNum ? p.cardNum.slice(-4) : "----")} <br />
-                          Exp: {p.expiryDate || "N/A"}
-                        </div>
-                      </div>
-                      <div>
-                        <input
-                          type="radio"
-                          name="payment"
-                          checked={selectedPaymentID === p.paymentID}
-                          onChange={() => setSelectedPaymentID(p.paymentID)}
-                        /> Select
-                        <input
-                          type="checkbox"
-                          checked={p.is_primary}
-                          onChange={() => setPrimaryPayment(p.paymentID)}
-                          className="ms-2"
-                          style={{ accentColor: 'green' }}
-                        /> Primary
-                        <button className="category-btn ms-2" onClick={() => deletePayment(p.paymentID)}>Remove</button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                <div className="form-check mb-2">
-                  <input type="checkbox" checked={showNewPayment} onChange={() => setShowNewPayment(!showNewPayment)} className="form-check-input" />
-                  <label className="form-check-label">Add New Payment</label>
-                </div>
-                {showNewPayment && (
-                  <div className="border p-3 rounded bg-light">
-                    {paymentError && <div className="alert alert-danger">{paymentError}</div>}
-                    <input type="text" name="cardName" placeholder="Name on Card" className="form-control mb-2" value={newPayment.cardName} onChange={handleNewPaymentChange} />
-                    <input type="text" name="cardNum" placeholder="Card Number (16 digits)" inputMode="numeric" className="form-control mb-2" value={newPayment.cardNum} onChange={handleNewPaymentChange} maxLength={16} />
-                    <div className="d-flex gap-2 mb-2">
-                      <input type="month" name="expiryDate" className="form-control" value={newPayment.expiryDate} onChange={handleNewPaymentChange} />
-                      <input type="password" name="cvv" placeholder="CVV" inputMode="numeric" className="form-control" value={newPayment.cvv} onChange={handleNewPaymentChange} maxLength={3} />
-                    </div>
-                    <div className="form-check mb-2">
-                      <input type="checkbox" name="is_primary" checked={newPayment.is_primary} onChange={handleNewPaymentChange} className="form-check-input" />
-                      <label className="form-check-label">Set as primary</label>
-                    </div>
-                    <button className="btn btn-success w-100" onClick={saveNewPayment} disabled={loadingPayment}>
-                      {loadingPayment ? "Saving..." : "Add Payment"}
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* RIGHT COLUMN */}
+{/* RIGHT COLUMN */}
         <div className="col-md-6">
           <div className="card shadow-sm">
             <div className="card-header checkout-section-title text-white">Order Summary</div>
@@ -540,14 +508,13 @@ export default function Category({ user }) {
               {orderError && <div className="alert alert-danger mt-3">{orderError}</div>}
 
               <button className="btn btn-primary w-100 mt-3" onClick={handleMakePayment} disabled={orderLoading || !hasValidAddress || !hasValidPayment}>
-                {orderLoading ? "Processing..." : "Place Order"}
+                {orderLoading ? "Processing..." : "Proceed to Payment"}
               </button>
             </div>
           </div>
         </div>
-      </div>
     </div>
+  </div>
+);
 
-    
-  );
 }
