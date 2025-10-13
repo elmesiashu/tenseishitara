@@ -270,47 +270,48 @@ export default function Checkout({ user }) {
     }
   };
 
-  const handleMakePayment = async (e) => {
-    e.preventDefault();
-    setOrderError("");
-    setOrderLoading(true);
+const handleMakePayment = async (e) => {
+  e.preventDefault();
+  setOrderError("");
+  setOrderLoading(true);
 
-    if (!cart.length) return setOrderError("Your cart is empty.");
+  if (!cart.length) return setOrderError("Your cart is empty.");
 
-    let addressIDToUse = selectedAddressID;
-    let paymentIDToUse = selectedPaymentID;
+  let addressIDToUse = selectedAddressID;
+  let paymentIDToUse = selectedPaymentID;
 
-    if (selectedAddressID === "new") {
-      const newAddrID = await saveNewAddress();
-      if (!newAddrID) return setOrderLoading(false);
-      addressIDToUse = newAddrID;
-    }
+  if (selectedAddressID === "new") {
+    const newAddrID = await saveNewAddress();
+    if (!newAddrID) return setOrderLoading(false);
+    addressIDToUse = newAddrID;
+  }
 
-    if (selectedPaymentID === "new") {
-      const newPayID = await saveNewPayment();
-      if (!newPayID) return setOrderLoading(false);
-      paymentIDToUse = newPayID;
-    }
+  if (selectedPaymentID === "new") {
+    const newPayID = await saveNewPayment();
+    if (!newPayID) return setOrderLoading(false);
+    paymentIDToUse = newPayID;
+  }
 
-    try {
-      const orderData = { userID: user.userID, items: cart, addressID: addressIDToUse, paymentID: paymentIDToUse, total };
-      const orderRes = await fetch(`${API_BASE}/api/order`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(orderData),
-      });
-      if (!orderRes.ok) throw new Error("Order failed");
+  try {
+    const orderData = { userID: user.userID, items: cart, addressID: addressIDToUse, paymentID: paymentIDToUse, total };
+    const orderRes = await fetch(`${API_BASE}/api/order`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(orderData),
+    });
+    if (!orderRes.ok) throw new Error("Order failed");
+    const data = await orderRes.json();
 
-      await reduceStock(cart);
-      sessionStorage.removeItem("checkoutCart");
-      navigate("/thankyou");
-    } catch {
-      setOrderError("Failed to place order.");
-    } finally {
-      setOrderLoading(false);
-    }
-  };
+    sessionStorage.removeItem("checkoutCart");
+    navigate("/thankyou", { state: { orderID: data.orderID } }); // pass orderID
+  } catch {
+    setOrderError("Failed to place order.");
+  } finally {
+    setOrderLoading(false);
+  }
+};
+
 
   const hasValidAddress = selectedAddressID && selectedAddressID !== "";
   const hasValidPayment = selectedPaymentID && selectedPaymentID !== "";
