@@ -433,7 +433,7 @@ export default function Checkout({ user }) {
 
  return (
   <div className="checkout container my-4">
-    <h2 className="heading"><span>Checkout</span></h2>
+    <h2 className="heading">MY <span>Checkout</span></h2>
     <div className="row">
       {/* LEFT COLUMN */}
       <div className="col-md-6">

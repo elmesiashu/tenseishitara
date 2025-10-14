@@ -147,21 +147,110 @@ router.get("/:id", async (req, res) => {
 });
 
 // ----------------- GET ALL ORDERS FOR A USER -----------------
-router.get("/user", authMiddleware, async (req, res) => {
+router.get("/user/:userID", async (req, res) => {
+  const { userID } = req.params;
   try {
-    const userID = req.user.id;
-    const [rows] = await db.query("SELECT * FROM orders WHERE userID = ? ORDER BY created_at DESC", [userID]);
-    const result = [];
+    const [orders] = await db.query(
+      `SELECT * FROM orders WHERE userID = ? ORDER BY created_at DESC`,
+      [userID]
+    );
 
-    for (const order of rows) {
-      const [items] = await db.query("SELECT * FROM order_items WHERE orderID = ?", [order.orderID]);
-      result.push({ ...order, items });
+    for (let order of orders) {
+      const [items] = await db.query(
+        `SELECT orderItemID, productID, name, price, quantity
+         FROM order_items WHERE orderID = ?`,
+        [order.orderID]
+      );
+      order.items = items;
+
+      const [addresses] = await db.query(
+        `SELECT * FROM addresses WHERE addressID = ?`,
+        [order.addressID]
+      );
+      order.address = addresses[0] || null;
+
+      const [payments] = await db.query(
+        `SELECT * FROM payments WHERE paymentID = ?`,
+        [order.paymentID]
+      );
+      order.payment = payments[0] || null;
     }
 
-    res.json(result);
+    res.json(orders);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Error retrieving orders" });
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// ----------------- GET ORDER BY ID ORDER HISTORY -----------------
+router.get("/id/:id", async (req, res) => {
+  const { id } = req.params;
+  const conn = await db.getConnection();
+
+  try {
+    const [orders] = await conn.query("SELECT * FROM orders WHERE orderID = ?", [id]);
+    if (!orders.length) return res.status(404).json({ message: "Order not found" });
+
+    const order = orders[0];
+
+    const [itemsRows] = await conn.query(
+      `SELECT 
+          oi.orderItemID,
+          oi.productID,
+          oi.name,
+          oi.price,
+          oi.quantity,
+          p.productTitle,
+          p.productImage,
+          GROUP_CONCAT(oio.optionID) AS optionIDs
+       FROM order_items oi
+       LEFT JOIN product p ON oi.productID = p.productID
+       LEFT JOIN order_item_options oio ON oi.orderItemID = oio.orderItemID
+       WHERE oi.orderID = ?
+       GROUP BY oi.orderItemID`,
+      [id]
+    );
+
+    const items = itemsRows.map((item) => {
+      let imageBase64 = "/images/placeholder.png";
+      if (item.productImage) {
+        const buffer = Buffer.from(item.productImage);
+        imageBase64 = `data:image/jpeg;base64,${buffer.toString("base64")}`;
+      }
+      return {
+        orderItemID: item.orderItemID,
+        productID: item.productID,
+        name: item.name || item.productTitle,
+        price: item.price,
+        quantity: item.quantity,
+        image: imageBase64,
+        options: item.optionIDs
+          ? item.optionIDs.split(",").map((optID) => ({ optionID: parseInt(optID) }))
+          : [],
+      };
+    });
+
+    order.items = items;
+
+    const [addresses] = await conn.query(
+      "SELECT * FROM addresses WHERE addressID = ?",
+      [order.addressID]
+    );
+    order.address = addresses[0] || null;
+
+    const [payments] = await conn.query(
+      "SELECT * FROM payments WHERE paymentID = ?",
+      [order.paymentID]
+    );
+    order.payment = payments[0] || null;
+
+    res.json(order);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to fetch order" });
+  } finally {
+    conn.release();
   }
 });
 
