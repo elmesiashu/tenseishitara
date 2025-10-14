@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const db = require("../db");
 const crypto = require("crypto");
+const authMiddleware = require("../middleware/auth"); 
 
 // Generate unique order ID
 function generateOrderID() {
