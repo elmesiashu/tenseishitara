@@ -1,7 +1,21 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../db");
+const crypto = require("crypto");
 
+// Generate unique order ID
+function generateOrderID() {
+  return `OD${Date.now()}`; // e.g., OD1697200000000
+}
+
+// Generate tracking number
+function generateTrackingNumber() {
+  const prefix = "BD";
+  const number = crypto.randomInt(0, 999999999999).toString().padStart(12, "0");
+  return `${prefix}${number}`; // e.g., BD045903594059
+}
+
+// ----------------- CREATE ORDER -----------------
 router.post("/", async (req, res) => {
   const { userID, items, addressID, paymentID, total } = req.body;
   if (!userID || !items?.length) return res.status(400).json({ message: "Invalid order" });
@@ -10,12 +24,16 @@ router.post("/", async (req, res) => {
   try {
     await conn.beginTransaction();
 
+    const orderID = generateOrderID();
+    const trackingNumber = generateTrackingNumber();
+
     // Insert order
-    const [orderResult] = await conn.query(
-      `INSERT INTO orders (userID, addressID, paymentID, total, status, created_at) VALUES (?, ?, ?, ?, 'Order Placed', NOW())`,
-      [userID, addressID, paymentID, total]
+    await conn.query(
+      `INSERT INTO orders 
+       (orderID, userID, addressID, paymentID, total, status, created_at, trackingNumber)
+       VALUES (?, ?, ?, ?, ?, 'Order Placed', NOW(), ?)`,
+      [orderID, userID, addressID, paymentID, total, trackingNumber]
     );
-    const orderID = orderResult.insertId;
 
     for (const item of items) {
       // Insert order item
@@ -23,6 +41,7 @@ router.post("/", async (req, res) => {
         `INSERT INTO order_items (orderID, productID, name, price, quantity) VALUES (?, ?, ?, ?, ?)`,
         [orderID, item.productID, item.name, item.price, item.qty]
       );
+
       const orderItemID = itemResult.insertId;
 
       // Insert item options if any
@@ -47,7 +66,7 @@ router.post("/", async (req, res) => {
     }
 
     await conn.commit();
-    res.json({ orderID });
+    res.json({ orderID, trackingNumber });
   } catch (err) {
     await conn.rollback();
     console.error("Order creation error:", err);
@@ -57,18 +76,18 @@ router.post("/", async (req, res) => {
   }
 });
 
-// ----------------- GET ORDER BY ID (with items + product info + options) -----------------
+// ----------------- GET ORDER BY ID -----------------
 router.get("/:id", async (req, res) => {
   const { id } = req.params;
   const conn = await db.getConnection();
 
   try {
-    // 1️⃣ Get order
+    // Get order
     const [orders] = await conn.query("SELECT * FROM orders WHERE orderID = ?", [id]);
     if (!orders.length) return res.status(404).json({ message: "Order not found" });
     const order = orders[0];
 
-    // 2️⃣ Get order items + product info
+    // Get order items + product info
     const [itemsRows] = await conn.query(
       `SELECT 
           oi.orderItemID,
@@ -87,11 +106,10 @@ router.get("/:id", async (req, res) => {
       [id]
     );
 
-    // 3️⃣ Convert items, handle blob -> base64
     const items = itemsRows.map((item) => {
       let imageBase64 = "/images/placeholder.png";
       if (item.productImage) {
-        const buffer = Buffer.from(item.productImage); // buffer from blob
+        const buffer = Buffer.from(item.productImage);
         imageBase64 = `data:image/jpeg;base64,${buffer.toString("base64")}`;
       }
 
@@ -110,11 +128,11 @@ router.get("/:id", async (req, res) => {
 
     order.items = items;
 
-    // 4️⃣ Fetch address
+    // Fetch address
     const [addresses] = await conn.query("SELECT * FROM addresses WHERE addressID = ?", [order.addressID]);
     order.address = addresses[0] || null;
 
-    // 5️⃣ Fetch payment
+    // Fetch payment
     const [payments] = await conn.query("SELECT * FROM payments WHERE paymentID = ?", [order.paymentID]);
     order.payment = payments[0] || null;
 

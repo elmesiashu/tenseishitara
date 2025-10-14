@@ -95,22 +95,32 @@ export default function Checkout({ user }) {
     }
   }, [user]);
 
-    // Load cart from sessionStorage
-    useEffect(() => {
-      const saved = JSON.parse(sessionStorage.getItem("checkoutCart")) || {
-        cart: [],
-        totals: {},
-      };
-      const mappedCart = (saved.cart || []).map((i) => ({
-        ...i,
-        qty: i.qty ?? i.quantity ?? 1,
-      }));
-      setCart(mappedCart);
-      setSubTotal(saved.totals?.price || 0);
-      setTax(saved.totals?.tax || 0);
-      setTotal(saved.totals?.total || 0);
-    }, []);
-    
+  const [siteDiscount, setSiteDiscount] = useState(0);
+  
+  // Load cart from sessionStorage
+  useEffect(() => {
+    const stored = JSON.parse(sessionStorage.getItem("checkoutCart") || "{}");
+    const discount = stored.siteDiscount || 0; // temp local
+    setSiteDiscount(discount); // update state
+
+    if (stored?.cart?.length) {
+      setCart(stored.cart);
+
+      let subtotal = 0;
+      stored.cart.forEach(item => {
+        const price = Number(item.price) || 0;
+        const discounted = price * (1 - discount / 100); // use temp local
+        subtotal += discounted * (Number(item.qty) || 1);
+      });
+
+      const tax = subtotal * 0.12;
+      setSubTotal(subtotal);
+      setTax(tax);
+      setTotal(subtotal + tax);
+    }
+  }, []);
+
+
   // Update states & cities when country/state changes
   useEffect(() => {
     if (newAddress.country) {
@@ -343,24 +353,33 @@ export default function Checkout({ user }) {
           console.warn("Missing productID for cart item:", item);
         }
 
+        const discountedPrice = (Number(item.price) || 0) * (1 - (siteDiscount || 0) / 100);
+
         return {
           productID,
           name: item.name || item.title || item.product_name || "Unnamed Product",
-          price: Number(item.price) || 0,
+          price: discountedPrice,       // store discounted price
           qty: item.qty ?? item.quantity ?? 1,
-          options: item.selected_option_id
-            ? [{ optionID: item.selected_option_id }]
-            : [],
+          optionName: item.optionName ?? null,
+          optionValue: item.optionValue ?? null,
+          pic: item.pic ?? item.image ?? null,
         };
       });
 
-      // Prepare order data
+      // Calculate subtotal, tax, total
+      const subtotal = formattedCart.reduce((acc, i) => acc + i.price * i.qty, 0);
+      const taxAmount = subtotal * 0.12;
+      const orderTotal = subtotal + taxAmount;
+
+      // Prepare order data to store in DB
       const orderData = {
         userID: user.userID,
         items: formattedCart,
+        total: orderTotal,   // <-- correct key
         addressID: selectedAddressID,
         paymentID: selectedPaymentID,
-        total,
+        status: "Order Placed",
+        created_at: new Date().toISOString(),
       };
 
       console.log("Sending order data:", orderData);
@@ -391,15 +410,13 @@ export default function Checkout({ user }) {
         state: {
           orderID: data.orderID,
           items: formattedCart,
-          total,
+          total: orderTotal,    // <-- pass total, not totals
           address: selectedAddressID,
           payment: selectedPaymentID,
-          subTotal,
-          tax,
           status: "Order Placed",
-          created_at: new Date().toISOString(),
+          created_at: orderData.created_at,
         },
-      })
+      });
     } catch (err) {
       console.error("Order creation failed:", err);
       setOrderError("Failed to place order. Please try again.");
@@ -571,29 +588,31 @@ export default function Checkout({ user }) {
         )}
       </div>
 
-{/* RIGHT COLUMN */}
+        {/* RIGHT COLUMN */}
         <div className="col-md-6">
           <div className="card shadow-sm">
             <div className="card-header checkout-section-title text-white">Order Summary</div>
             <div className="card-body">
-              {cart.map((item) => (
-                <div key={item.id ?? item.productID} className="d-flex justify-content-between border-bottom pb-2 mb-2">
-                  <div className="d-flex align-items-center">
-                    <img src={getImageUrl(item.image ?? item.pic ?? "")} alt={item.name} width="60" className="me-2 rounded" />
-                    <div>
-                      <strong>{item.name}</strong> x {item.qty}
+              {cart.map((item) => {
+                const discounted = (Number(item.price) || 0) * (1 - (siteDiscount || 0) / 100);
+                return (
+                  <div key={item.key} className="d-flex justify-content-between border-bottom pb-2 mb-2">
+                    <div className="d-flex align-items-center">
+                      <img src={getImageUrl(item.pic ?? item.image ?? "")} alt={item.name} width="60" className="me-2 rounded" />
+                      <div>
+                        <strong>{item.name}</strong> x {item.qty}
+                      </div>
                     </div>
+                    <div>${(discounted * item.qty).toFixed(2)}</div>
                   </div>
-                  <div>${(item.price * item.qty).toFixed(2)}</div>
-                </div>
-              ))}
-
+                );
+              })}
               <div className="d-flex justify-content-between mt-3">
                 <span>Subtotal:</span>
                 <strong>${subTotal.toFixed(2)}</strong>
               </div>
               <div className="d-flex justify-content-between">
-                <span>Tax:</span>
+                <span>Tax (12%):</span>
                 <strong>${tax.toFixed(2)}</strong>
               </div>
               <div className="d-flex justify-content-between fs-5 mt-2 border-top pt-2">

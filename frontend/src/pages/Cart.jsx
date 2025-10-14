@@ -101,11 +101,12 @@ export default function Cart({
         pic: item.pic,
         key: item.key,
       })),
+      cart,
       totals,
       siteDiscount,
     };
 
-    sessionStorage.setItem("checkoutCart", JSON.stringify(checkoutData));
+    sessionStorage.setItem("checkoutCart", JSON.stringify({cart, siteDiscount}));
     navigate("/checkout");
   };
 
