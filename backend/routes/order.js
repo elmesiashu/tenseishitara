@@ -61,14 +61,14 @@ router.post("/", async (req, res) => {
 router.get("/:id", async (req, res) => {
   const { id } = req.params;
   const conn = await db.getConnection();
+
   try {
-    // Get order
+    // 1️⃣ Get order
     const [orders] = await conn.query("SELECT * FROM orders WHERE orderID = ?", [id]);
     if (!orders.length) return res.status(404).json({ message: "Order not found" });
-
     const order = orders[0];
 
-    // Get order items + product info
+    // 2️⃣ Get order items + product info
     const [itemsRows] = await conn.query(
       `SELECT 
           oi.orderItemID,
@@ -87,11 +87,11 @@ router.get("/:id", async (req, res) => {
       [id]
     );
 
-    // Convert optionIDs to array & handle blob -> base64
+    // 3️⃣ Convert items, handle blob -> base64
     const items = itemsRows.map((item) => {
       let imageBase64 = "/images/placeholder.png";
       if (item.productImage) {
-        const buffer = Buffer.from(item.productImage, "binary");
+        const buffer = Buffer.from(item.productImage); // buffer from blob
         imageBase64 = `data:image/jpeg;base64,${buffer.toString("base64")}`;
       }
 
@@ -110,11 +110,11 @@ router.get("/:id", async (req, res) => {
 
     order.items = items;
 
-    // Optionally fetch address
+    // 4️⃣ Fetch address
     const [addresses] = await conn.query("SELECT * FROM addresses WHERE addressID = ?", [order.addressID]);
     order.address = addresses[0] || null;
 
-    // Optionally fetch payment
+    // 5️⃣ Fetch payment
     const [payments] = await conn.query("SELECT * FROM payments WHERE paymentID = ?", [order.paymentID]);
     order.payment = payments[0] || null;
 
@@ -126,6 +126,5 @@ router.get("/:id", async (req, res) => {
     conn.release();
   }
 });
-
 
 module.exports = router;

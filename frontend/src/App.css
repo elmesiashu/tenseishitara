@@ -883,8 +883,7 @@ footer {
   margin-top: auto; /* ensures it sticks to bottom */
 }
 
-
-/* ---------- CHECKOUT SECTION ---------- */
+/* -------------------- CHECKOUT SECTION -------------------- */
 .checkout {
   font-family: "Poppins", sans-serif;
 }
@@ -976,6 +975,8 @@ footer {
   color: green;
 }
 
+
+/* -------------------- Thank You SECTION -------------------- */
 .thankyou body {
     background: rgb(213, 217, 233);
     min-height: 100vh;
@@ -988,7 +989,7 @@ footer {
 .thankyou .card {
     margin: auto;
     width: 320px;
-    max-width: 600px;
+    max-width: 1200px;
     border-radius: 20px;
 }
 
@@ -1016,7 +1017,7 @@ footer {
 .thankyou .title {
     display: flex;
     text-align: center;
-    font-size: 2rem;
+    font-size: 5rem;
     font-weight: bold;
     padding: 12%;
 }
