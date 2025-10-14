@@ -57,7 +57,7 @@ router.post("/", async (req, res) => {
   }
 });
 
-// ----------------- GET ORDER BY ID (with items + options) -----------------
+// ----------------- GET ORDER BY ID (with items + product info + options) -----------------
 router.get("/:id", async (req, res) => {
   const { id } = req.params;
   const conn = await db.getConnection();
@@ -68,28 +68,45 @@ router.get("/:id", async (req, res) => {
 
     const order = orders[0];
 
-    //  Get order items
+    // Get order items + product info
     const [itemsRows] = await conn.query(
-      `SELECT oi.*, 
-              GROUP_CONCAT(oio.optionID) AS optionIDs
+      `SELECT 
+          oi.orderItemID,
+          oi.productID,
+          oi.name,
+          oi.price,
+          oi.quantity,
+          p.productTitle,
+          p.productImage,
+          GROUP_CONCAT(oio.optionID) AS optionIDs
        FROM order_items oi
+       LEFT JOIN product p ON oi.productID = p.productID
        LEFT JOIN order_item_options oio ON oi.orderItemID = oio.orderItemID
        WHERE oi.orderID = ?
        GROUP BY oi.orderItemID`,
       [id]
     );
 
-    // Convert optionIDs to array
-    const items = itemsRows.map((item) => ({
-      orderItemID: item.orderItemID,
-      productID: item.productID,
-      name: item.name,
-      price: item.price,
-      quantity: item.quantity,
-      options: item.optionIDs
-        ? item.optionIDs.split(",").map((optID) => ({ optionID: parseInt(optID) }))
-        : [],
-    }));
+    // Convert optionIDs to array & handle blob -> base64
+    const items = itemsRows.map((item) => {
+      let imageBase64 = "/images/placeholder.png";
+      if (item.productImage) {
+        const buffer = Buffer.from(item.productImage, "binary");
+        imageBase64 = `data:image/jpeg;base64,${buffer.toString("base64")}`;
+      }
+
+      return {
+        orderItemID: item.orderItemID,
+        productID: item.productID,
+        name: item.name || item.productTitle,
+        price: item.price,
+        quantity: item.quantity,
+        image: imageBase64,
+        options: item.optionIDs
+          ? item.optionIDs.split(",").map((optID) => ({ optionID: parseInt(optID) }))
+          : [],
+      };
+    });
 
     order.items = items;
 
@@ -109,5 +126,6 @@ router.get("/:id", async (req, res) => {
     conn.release();
   }
 });
+
 
 module.exports = router;

@@ -10,16 +10,21 @@ function getImageUrl(filename) {
   return `${API_BASE}/uploads/${filename}`;
 }
 
-export default function ThankYou() {
-  const [order, setOrder] = useState(null);
-  const location = useLocation();
-  const navigate = useNavigate();
+function formatPrice(val) {
+  const num = Number(val);
+  return isNaN(num) ? "0.00" : num.toFixed(2);
+}
 
+export default function ThankYou() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const orderID = location.state?.orderID;
+
+  const [order, setOrder] = useState(null);
 
   useEffect(() => {
     if (!orderID) {
-      navigate("/"); // no orderID, redirect to home
+      navigate("/");
       return;
     }
 
@@ -32,105 +37,113 @@ export default function ThankYou() {
         const data = await res.json();
         setOrder(data);
 
-        // Clear cart session/localStorage after order
+        // Clear cart
         sessionStorage.removeItem("checkoutCart");
         localStorage.removeItem("cart");
       } catch (err) {
-        console.error("Error fetching order:", err);
-        navigate("/"); // redirect if failed
+        console.error(err);
+        navigate("/");
       }
     };
 
     fetchOrder();
   }, [orderID, navigate]);
 
-  if (!order) return <div className="text-center mt-5">Loading your order...</div>;
+  if (!order && !location.state) return <div className="text-center mt-5">Loading your order...</div>;
 
-  const { items, total, payment, address, orderID: ordNo, status, created_at } = order;
-
-  const statusSteps = ["Order Placed", "In Transit", "Out for Delivery", "Delivered"];
-  const currentStep = statusSteps.indexOf(status) + 1;
+  const {
+    items = location.state?.items || [],
+    subTotal = location.state?.subTotal || 0,
+    tax = location.state?.tax || 0,
+    total = location.state?.total || 0,
+    payment = location.state?.payment || {},
+    address = location.state?.address || {},
+    orderID: ordNo = location.state?.orderID,
+    created_at = location.state?.created_at || new Date().toISOString(),
+  } = order || {};
 
   const estimatedDelivery = new Date(new Date(created_at).getTime() + 5 * 24 * 60 * 60 * 1000).toLocaleDateString();
 
   return (
-    <div className="card mt-50 mb-50">
-      <div className="col d-flex">
-        <span className="text-muted" id="orderno">Order #{ordNo}</span>
+    <div className="thankyou container my-5">
+      <div className="text-center mb-4">
+        <h2>Thank you for your order!</h2>
+        <p className="text-muted">Order #{ordNo}</p>
       </div>
 
-      <div className="title mx-auto">Thank you for your order!</div>
-
-      <div className="main">
-        <span id="sub-title"><p><b>Payment Summary</b></p></span>
-
-        {items.map((item) => (
-          <div key={item.orderItemID} className="row row-main">
-            <div className="col-3">
-              <img className="img-fluid" src={getImageUrl(item.image)} alt={item.name} />
-            </div>
-            <div className="col-6">
-              <div className="row d-flex">
-                <p><b>{item.name}</b> x {item.quantity}</p>
-              </div>
-              {item.options?.length > 0 && (
-                <div className="row d-flex">
-                  {item.options.map((opt, idx) => (
-                    <p key={idx} className="text-muted">{opt.optionName || `Option ${opt.optionID}`}: {opt.optionValue || "N/A"}</p>
-                  ))}
+      {/* Receipt Card */}
+      <div className="card shadow-sm mb-4">
+        <div className="card-header bg-primary text-white">Order Summary</div>
+        <div className="card-body">
+          {items.map((item) => (
+            <div
+              key={item.orderItemID || item.id || item.productID}
+              className="d-flex justify-content-between border-bottom pb-2 mb-2 align-items-center"
+            >
+              <div className="d-flex align-items-center">
+                <img
+                  src={getImageUrl(item.image || "/images/placeholder.png")}
+                  alt={item.name}
+                  width="60"
+                  className="me-2 rounded"
+                />
+                <div>
+                  <strong>{item.name}</strong> x {item.quantity || 1}
                 </div>
-              )}
+              </div>
+              <div>${formatPrice((item.price || 0) * (item.quantity || 1))}</div>
             </div>
-            <div className="col-3 d-flex justify-content-end">
-              <p><b>${(item.price * item.quantity).toFixed(2)}</b></p>
-            </div>
+          ))}
+
+          {/* Totals */}
+          <div className="d-flex justify-content-between mt-3">
+            <span>Subtotal:</span>
+            <strong>${formatPrice(subTotal)}</strong>
           </div>
-        ))}
+          <div className="d-flex justify-content-between">
+            <span>Tax:</span>
+            <strong>${formatPrice(tax)}</strong>
+          </div>
+          <div className="d-flex justify-content-between fs-5 mt-2 border-top pt-2">
+            <span>Total:</span>
+            <strong>${formatPrice(total)}</strong>
+          </div>
 
-        <hr />
+          <hr />
 
-        <div className="total">
-          <div className="row">
-            <div className="col"><b>Total:</b></div>
-            <div className="col d-flex justify-content-end"><b>${total?.toFixed(2) || "0.00"}</b></div>
+          {/* Payment */}
+          <div>
+            <h6>Payment Method</h6>
+            <p>{payment?.cardName || ""} ****{payment?.cardNum_last4 || "****"} ({payment?.cardType || "Card"})</p>
+          </div>
+
+          {/* Shipping */}
+          <div>
+            <h6>Shipping Address</h6>
+            <p>
+              {address?.fullName || ""}<br />
+              {address?.unit ? `${address.unit} - ` : ""}{address?.address || ""}<br />
+              {address?.city || ""}, {address?.state || ""}<br />
+              {address?.country || ""}, {address?.zipCode || ""}<br />
+              {address?.phoneNum || ""}<br />
+              <b>Estimated Delivery:</b> {estimatedDelivery}
+            </p>
+          </div>
+
+          {/* Track Button inside receipt */}
+          <div className="text-center mt-3">
+            <button className="btn btn-primary" onClick={() => navigate(`/track/${ordNo}`)}>
+              Track Your Order
+            </button>
           </div>
         </div>
+      </div>
 
-        <hr />
-
-        <div className="total">
-          <div className="row">
-            <div className="col"><b>Transaction Type:</b></div>
-            <div className="col d-flex justify-content-end"><b>{payment?.cardType || "Card"}</b></div>
-          </div>
-          <div className="row">
-            <div className="col"><b>Payment Details:</b></div>
-            <div className="col d-flex justify-content-end">
-              <b>{payment?.cardName || ""} ****{payment?.cardNum_last4 || "****"}</b>
-            </div>
-          </div>
-        </div>
-
-        <hr />
-
-        <div className="total">
-          <div className="row">
-            <div className="col"><b>Shipment Details:</b></div>
-            <div className="col">
-              <p>{address?.fullName}</p>
-              <p>{address?.unit && `${address.unit} - `}{address?.address}</p>
-              <p>{address?.city}, {address?.state}</p>
-              <p>{address?.country}, {address?.zipCode}</p>
-              <p>{address?.phoneNum}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="text-center mt-4">
-          <button className="btn btn-primary btn-lg" onClick={() => navigate("/")}>
-            Continue Shopping
-          </button>
-        </div>
+      {/* Continue Shopping outside receipt */}
+      <div className="text-center mt-3">
+        <button className="btn btn-outline-primary me-2" onClick={() => navigate("/")}>
+          Continue Shopping
+        </button>
       </div>
     </div>
   );
