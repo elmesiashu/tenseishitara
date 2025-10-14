@@ -146,7 +146,7 @@ router.get("/:id", async (req, res) => {
 });
 
 // GET all orders for a user with items, address, and payment
-router.get("/:userID", async (req, res) => {
+router.get("/:id", async (req, res) => {
   const { userID } = req.params;
   try {
     // Fetch orders
