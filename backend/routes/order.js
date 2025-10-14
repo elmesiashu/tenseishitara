@@ -57,7 +57,7 @@ router.post("/", async (req, res) => {
 
       // Reduce stock
       await conn.query(
-        `UPDATE products SET stock = stock - ? WHERE productID = ?`,
+        `UPDATE product SET stock = stock - ? WHERE productID = ?`,
         [item.qty, item.productID]
       );
     }
