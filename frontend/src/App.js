@@ -17,6 +17,7 @@ import ThankYou from "./pages/Thankyou";
 
 // ---------- User Settings Pages ----------
 import Account from "./user/Account";
+import Order from "./user/Order";
 
 // ---------- Admin Pages ----------
 import Products from "./admin/Products";
@@ -212,6 +213,7 @@ function AppWrapper() {
             }
           />
           <Route path="/account" element={<PrivateRoute element={<Account user={user} setUser={setUser} />}/>}/>
+           <Route path="/order" element={<PrivateRoute element={<Order user={user} setUser={setUser} />}/>}/>
           <Route path="/thankyou" element={<ThankYou />} />
 
           {/* ADMIN ROUTES */}
