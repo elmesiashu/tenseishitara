@@ -270,48 +270,84 @@ export default function Checkout({ user }) {
     }
   };
 
-const handleMakePayment = async (e) => {
-  e.preventDefault();
-  setOrderError("");
-  setOrderLoading(true);
+  const handleMakePayment = async (e) => {
+    e.preventDefault();
+    setOrderError("");
+    setOrderLoading(true);
 
-  if (!cart.length) return setOrderError("Your cart is empty.");
+    if (!cart.length) {
+      setOrderError("Your cart is empty.");
+      setOrderLoading(false);
+      return;
+    }
 
-  let addressIDToUse = selectedAddressID;
-  let paymentIDToUse = selectedPaymentID;
+    let addressIDToUse = selectedAddressID;
+    let paymentIDToUse = selectedPaymentID;
 
-  if (selectedAddressID === "new") {
-    const newAddrID = await saveNewAddress();
-    if (!newAddrID) return setOrderLoading(false);
-    addressIDToUse = newAddrID;
-  }
+    // Save new address if user selected "new"
+    if (selectedAddressID === "new") {
+      const newAddrID = await saveNewAddress();
+      if (!newAddrID) {
+        setOrderLoading(false);
+        return;
+      }
+      addressIDToUse = newAddrID;
+    }
 
-  if (selectedPaymentID === "new") {
-    const newPayID = await saveNewPayment();
-    if (!newPayID) return setOrderLoading(false);
-    paymentIDToUse = newPayID;
-  }
+    // Save new payment if user selected "new"
+    if (selectedPaymentID === "new") {
+      const newPayID = await saveNewPayment();
+      if (!newPayID) {
+        setOrderLoading(false);
+        return;
+      }
+      paymentIDToUse = newPayID;
+    }
 
-  try {
-    const orderData = { userID: user.userID, items: cart, addressID: addressIDToUse, paymentID: paymentIDToUse, total };
-    const orderRes = await fetch(`${API_BASE}/api/order`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify(orderData),
-    });
-    if (!orderRes.ok) throw new Error("Order failed");
-    const data = await orderRes.json();
+    try {
+      // Map cart items to match backend expectations
+      const formattedCart = cart.map(item => ({
+        productID: item.id,            // map id from cart
+        name: item.name,
+        price: item.price,
+        qty: item.quantity,            // map quantity from cart
+        options: item.selected_option_id
+          ? [{ optionID: item.selected_option_id }]
+          : []
+      }));
 
-    sessionStorage.removeItem("checkoutCart");
-    navigate("/thankyou", { state: { orderID: data.orderID } }); // pass orderID
-  } catch {
-    setOrderError("Failed to place order.");
-  } finally {
-    setOrderLoading(false);
-  }
-};
+      const orderData = {
+        userID: user.userID,
+        items: formattedCart,
+        addressID: addressIDToUse,
+        paymentID: paymentIDToUse,
+        total
+      };
 
+      const orderRes = await fetch(`${API_BASE}/api/order`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(orderData),
+      });
+
+      if (!orderRes.ok) throw new Error("Order failed");
+
+      const data = await orderRes.json();
+
+      // Clear sessionStorage cart
+      sessionStorage.removeItem("checkoutCart");
+
+      // Navigate to Thank You page with orderID
+      navigate("/thankyou", { state: { orderID: data.orderID } });
+
+    } catch (err) {
+      console.error("Order creation failed:", err);
+      setOrderError("Failed to place order.");
+    } finally {
+      setOrderLoading(false);
+    }
+  };
 
   const hasValidAddress = selectedAddressID && selectedAddressID !== "";
   const hasValidPayment = selectedPaymentID && selectedPaymentID !== "";
