@@ -1,182 +1,180 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import React, { useState, useEffect } from "react";
 
-const Account = ({ user, setUser }) => {
-  const navigate = useNavigate();
-  const [formData, setFormData] = useState({
-    firstName: user?.firstName || "",
-    lastName: user?.lastName || "",
+const API_BASE = process.env.REACT_APP_API_URL || window.location.origin;
+
+export default function Account({ user }) {
+  const [addresses, setAddresses] = useState([]);
+  const [selectedAddressID, setSelectedAddressID] = useState(null);
+
+  const [profilePic, setProfilePic] = useState(user?.profilePic || "/images/placeholder.png");
+  const [userInfo, setUserInfo] = useState({
+    fullName: `${user?.fname || ""} ${user?.lname || ""}`,
     email: user?.email || "",
   });
-  const [profileImage, setProfileImage] = useState(user?.profileImage || "/images/default-user.png");
-  const [imageFile, setImageFile] = useState(null);
-  const [isEditing, setIsEditing] = useState(false);
+
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  if (!user) {
-    navigate("/login");
-    return null;
-  }
+  // Fetch addresses
+  useEffect(() => {
+    const fetchAddresses = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/addresses`, { credentials: "include" });
+        const data = await res.json();
+        // Sort primary first
+        const sorted = data.sort((a, b) => b.is_primary - a.is_primary);
+        setAddresses(sorted);
+        setSelectedAddressID(sorted[0]?.addressID || null);
+      } catch (err) {
+        console.error("Error fetching addresses:", err);
+      }
+    };
+    fetchAddresses();
+  }, []);
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+  const handleProfilePicChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => setProfilePic(reader.result);
+    reader.readAsDataURL(file);
   };
 
-  const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setImageFile(file);
-      setProfileImage(URL.createObjectURL(file)); // preview
-    }
+  const handleUserChange = (e) => {
+    const { name, value } = e.target;
+    setUserInfo(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleAddressChange = (id, field, value) => {
+    setAddresses(prev => prev.map(addr => addr.addressID === id ? { ...addr, [field]: value } : addr));
   };
 
   const handleSave = async () => {
+    setError("");
+    setLoading(true);
     try {
-      setLoading(true);
-      const form = new FormData();
-      form.append("firstName", formData.firstName);
-      form.append("lastName", formData.lastName);
-      form.append("email", formData.email);
-      if (imageFile) form.append("profileImage", imageFile);
-
-      const res = await axios.post("http://localhost:5000/api/user/update-profile", form, {
-        headers: { "Content-Type": "multipart/form-data" },
+      // Save user info
+      await fetch(`${API_BASE}/api/user/${user.userID}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ profilePic, ...userInfo }),
       });
 
-      // Update local user data
-      setUser(res.data.user);
-      localStorage.setItem("user", JSON.stringify(res.data.user));
-      setIsEditing(false);
-      alert("✅ Profile updated successfully!");
+      // Save addresses
+      for (const addr of addresses) {
+        await fetch(`${API_BASE}/api/addresses/${addr.addressID}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(addr),
+        });
+      }
+
+      alert("Profile and addresses updated!");
     } catch (err) {
-      console.error("Error updating profile:", err);
-      alert("❌ Failed to update profile.");
+      setError("Failed to save changes.");
+      console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <section className="py-5 container">
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <h1 className="fw-bold text-primary">Account Information</h1>
-        <button onClick={() => navigate(-1)} className="btn btn-secondary">
-          Back
-        </button>
-      </div>
-
-      <div className="card shadow-sm p-4 mx-auto" style={{ maxWidth: "700px" }}>
-        {/* Profile Image */}
-        <div className="text-center mb-4">
-          <img
-            src={profileImage}
-            alt="Profile"
-            className="rounded-circle shadow-sm"
-            style={{ width: "150px", height: "150px", objectFit: "cover" }}
-          />
-          {isEditing && (
-            <div className="mt-3">
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleFileChange}
-                className="form-control"
-                style={{ maxWidth: "300px", margin: "0 auto" }}
-              />
-            </div>
-          )}
+    <div className="container my-5">
+      <h2 className="mb-4">My Account</h2>
+      <div className="row">
+        {/* Profile Info */}
+        <div className="col-md-4 mb-4 text-center">
+          <div className="card shadow-sm p-3">
+            <img
+              src={profilePic}
+              alt="Profile"
+              className="rounded-circle mb-3"
+              style={{ width: 150, height: 150, objectFit: "cover" }}
+            />
+            <input type="file" className="form-control form-control-sm" onChange={handleProfilePicChange} />
+            <input
+              type="text"
+              name="fullName"
+              placeholder="Full Name"
+              className="form-control mt-3"
+              value={userInfo.fullName}
+              onChange={handleUserChange}
+            />
+            <input
+              type="email"
+              name="email"
+              placeholder="Email"
+              className="form-control mt-2"
+              value={userInfo.email}
+              onChange={handleUserChange}
+            />
+          </div>
         </div>
 
-        {/* User Info */}
-        <table className="table table-borderless">
-          <tbody>
-            <tr>
-              <th style={{ width: "30%" }}>First Name:</th>
-              <td>
-                {isEditing ? (
+        {/* Addresses */}
+        <div className="col-md-8">
+          <div className="card shadow-sm p-4">
+            <h5 className="mb-3">Shipping Addresses</h5>
+            {error && <div className="alert alert-danger">{error}</div>}
+            {addresses.map((addr) => (
+              <div key={addr.addressID} className={`border p-3 mb-3 rounded ${addr.is_primary ? "border-success" : ""}`}>
+                <div className="d-flex justify-content-between align-items-center mb-2">
+                  <strong>{addr.fullName}</strong>
+                  {addr.is_primary && <span className="badge bg-success">Primary</span>}
+                </div>
+                <input
+                  type="text"
+                  className="form-control mb-1"
+                  value={addr.address}
+                  onChange={(e) => handleAddressChange(addr.addressID, "address", e.target.value)}
+                />
+                <input
+                  type="text"
+                  className="form-control mb-1"
+                  value={addr.unit}
+                  placeholder="Unit/Suite"
+                  onChange={(e) => handleAddressChange(addr.addressID, "unit", e.target.value)}
+                />
+                <div className="d-flex gap-2 mb-1">
                   <input
                     type="text"
-                    name="firstName"
-                    value={formData.firstName}
-                    onChange={handleChange}
                     className="form-control"
+                    value={addr.city}
+                    placeholder="City"
+                    onChange={(e) => handleAddressChange(addr.addressID, "city", e.target.value)}
                   />
-                ) : (
-                  user.firstName
-                )}
-              </td>
-            </tr>
-            <tr>
-              <th>Last Name:</th>
-              <td>
-                {isEditing ? (
                   <input
                     type="text"
-                    name="lastName"
-                    value={formData.lastName}
-                    onChange={handleChange}
                     className="form-control"
+                    value={addr.state}
+                    placeholder="State"
+                    onChange={(e) => handleAddressChange(addr.addressID, "state", e.target.value)}
                   />
-                ) : (
-                  user.lastName
-                )}
-              </td>
-            </tr>
-            <tr>
-              <th>Email:</th>
-              <td>
-                {isEditing ? (
                   <input
-                    type="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleChange}
+                    type="text"
                     className="form-control"
+                    value={addr.zipCode}
+                    placeholder="ZIP"
+                    onChange={(e) => handleAddressChange(addr.addressID, "zipCode", e.target.value)}
                   />
-                ) : (
-                  user.email
-                )}
-              </td>
-            </tr>
-            <tr>
-              <th>User ID:</th>
-              <td>{user.userID}</td>
-            </tr>
-          </tbody>
-        </table>
-
-        {/* Buttons */}
-        <div className="text-center mt-4">
-          {isEditing ? (
-            <>
-              <button
-                className="btn btn-success me-3"
-                onClick={handleSave}
-                disabled={loading}
-              >
-                {loading ? "Saving..." : "Save Changes"}
-              </button>
-              <button
-                className="btn btn-outline-secondary"
-                onClick={() => setIsEditing(false)}
-              >
-                Cancel
-              </button>
-            </>
-          ) : (
-            <button
-              className="btn btn-primary"
-              onClick={() => setIsEditing(true)}
-            >
-              Edit Profile
+                </div>
+                <input
+                  type="text"
+                  className="form-control"
+                  value={addr.phoneNum}
+                  placeholder="Phone Number"
+                  onChange={(e) => handleAddressChange(addr.addressID, "phoneNum", e.target.value)}
+                />
+              </div>
+            ))}
+            <button className="btn btn-primary w-100 mt-3" onClick={handleSave} disabled={loading}>
+              {loading ? "Saving..." : "Save All Changes"}
             </button>
-          )}
+          </div>
         </div>
       </div>
-    </section>
+    </div>
   );
-};
-
-export default Account;
+}

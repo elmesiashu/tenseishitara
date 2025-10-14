@@ -4,6 +4,9 @@ const db = require("../db");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { v4: uuidv4 } = require("uuid");
+const multer = require("multer");
+const fs = require("fs");
+const path = require("path");
 const authMiddleware = require("../middleware/auth"); // JWT middleware
 
 const JWT_SECRET = process.env.JWT_SECRET || "secret";
@@ -33,6 +36,13 @@ function sendToken(res, user) {
 
   res.json({ success: true, user: safeUser });
 }
+
+// ----------------- Multer config for profile images -----------------
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, "uploads/userImg"),
+  filename: (req, file, cb) => cb(null, Date.now() + path.extname(file.originalname)),
+});
+const upload = multer({ storage });
 
 // ----------------- Register -----------------
 router.post("/register", async (req, res) => {
@@ -112,6 +122,48 @@ router.post("/logout", (req, res) => {
     secure: process.env.NODE_ENV === "production",
   });
   res.json({ success: true });
+});
+
+// ----------------- Update Profile -----------------
+router.post("/update-profile", authMiddleware, upload.single("userImg"), async (req, res) => {
+  const { fname, lname, email } = req.body;
+  const userID = req.user.userID;
+
+  try {
+    // Get current user
+    const [userRows] = await db.query("SELECT userImg FROM user WHERE userID = ?", [userID]);
+    const currentUser = userRows[0];
+
+    let newImg = currentUser.userImg;
+
+    if (req.file) {
+      newImg = `/uploads/userImg/${req.file.filename}`;
+
+      // Delete old image if not default
+      if (currentUser.userImg && !currentUser.userImg.includes("default.png")) {
+        const oldPath = path.join(__dirname, "..", currentUser.userImg);
+        fs.unlink(oldPath, (err) => {
+          if (err) console.error("Failed to delete old profile image:", err);
+        });
+      }
+    }
+
+    // Update user
+    await db.query(
+      "UPDATE user SET fname = ?, lname = ?, email = ?, userImg = ? WHERE userID = ?",
+      [fname, lname, email, newImg, userID]
+    );
+
+    const [updatedRows] = await db.query(
+      "SELECT userID, fname, lname, email, userImg, isAdmin FROM user WHERE userID = ?",
+      [userID]
+    );
+
+    res.json({ user: updatedRows[0] });
+  } catch (err) {
+    console.error("UPDATE PROFILE ERROR:", err);
+    res.status(500).json({ message: "Failed to update profile" });
+  }
 });
 
 module.exports = router;

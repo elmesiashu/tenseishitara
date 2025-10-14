@@ -146,39 +146,21 @@ router.get("/:id", async (req, res) => {
 });
 
 // ----------------- GET ALL ORDERS FOR A USER -----------------
-router.get("/user/:userID", async (req, res) => {
-  const { userID } = req.params;
+router.get("/user", authMiddleware, async (req, res) => {
   try {
-    const [orders] = await db.query(
-      `SELECT * FROM orders WHERE userID = ? ORDER BY created_at DESC`,
-      [userID]
-    );
+    const userID = req.user.id;
+    const [rows] = await db.query("SELECT * FROM orders WHERE userID = ? ORDER BY created_at DESC", [userID]);
+    const result = [];
 
-    for (let order of orders) {
-      const [items] = await db.query(
-        `SELECT orderItemID, productID, name, price, quantity 
-         FROM order_items WHERE orderID = ?`,
-        [order.orderID]
-      );
-      order.items = items;
-
-      const [addresses] = await db.query(
-        `SELECT * FROM addresses WHERE addressID = ?`,
-        [order.addressID]
-      );
-      order.address = addresses[0] || null;
-
-      const [payments] = await db.query(
-        `SELECT * FROM payments WHERE paymentID = ?`,
-        [order.paymentID]
-      );
-      order.payment = payments[0] || null;
+    for (const order of rows) {
+      const [items] = await db.query("SELECT * FROM order_items WHERE orderID = ?", [order.orderID]);
+      result.push({ ...order, items });
     }
 
-    res.json(orders);
+    res.json(result);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Error retrieving orders" });
   }
 });
 

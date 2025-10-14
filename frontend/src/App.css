@@ -1387,3 +1387,15 @@ footer {
 .progress-line-filled {
   transition: width 0.3s ease;
 }
+
+.progress-sm {
+  height: 10px;
+  border-radius: 10px;
+}
+
+.card {
+  transition: transform 0.2s ease;
+}
+.card:hover {
+  transform: translateY(-3px);
+}
