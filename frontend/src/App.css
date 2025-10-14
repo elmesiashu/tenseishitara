@@ -1180,3 +1180,210 @@ footer {
     border-radius: 0.25rem !important;
 }
 
+/* -------------------- PAYMENT SECTION -------------------- */
+:root {
+  --anime-purple: #6f42c1;
+  --card-shadow: 0 6px 18px rgba(33, 37, 41, 0.12);
+  --card-radius: 12px;
+}
+
+/* Payment Grid */
+.payments-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  justify-content: flex-start;
+}
+
+/* Credit Card Styles */
+.cc-card {
+  border-radius: var(--card-radius);
+  color: #fff;
+  padding: 1rem;
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--card-shadow);
+  min-height: 140px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 300px; /* slightly wider cards */
+  margin: 0 auto;
+}
+
+.cc-chip {
+  width: 44px;
+  height: 30px;
+  border-radius: 4px;
+  background: linear-gradient(180deg, #d8d8d8, #9b9b9b);
+  box-shadow: inset 0 -2px 0 rgba(0,0,0,0.15);
+}
+
+.cc-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.cc-number {
+  font-family: 'Courier New', monospace;
+  letter-spacing: 2px;
+  font-size: 1.05rem;
+}
+
+.cc-name {
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  opacity: 0.95;
+}
+
+.cc-exp {
+  font-size: 0.85rem;
+  opacity: 0.95;
+}
+
+.cc-logo {
+  width: 70px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Primary badge */
+.badge-primary-top {
+  position: absolute;
+  top: 0.6rem;
+  left: 0.6rem;
+  background: rgba(255,255,255,0.18);
+  color: #fff;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+}
+
+/* Card overlay effect */
+.card-overlay {
+  position: absolute;
+  inset: 0;
+  opacity: 0.06;
+  pointer-events: none;
+  background: linear-gradient(120deg, rgba(0,0,0,0.06), rgba(255,255,255,0.02));
+}
+
+/* Color variants */
+.cc-visa {
+  background: linear-gradient(135deg, #13294b 0%, #1b3a6b 100%);
+}
+
+.cc-master {
+  background: linear-gradient(135deg, #7f0b0b 0%, #d94f1b 100%);
+}
+
+.cc-generic {
+  background: linear-gradient(135deg, #6f42c1 0%, #5a2db8 100%);
+}
+
+/* Buttons below cards */
+.card-actions {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+/* Optional small tweaks for text alignment */
+.text-end {
+  text-align: right;
+}
+
+.card-actions .btn {
+  font-size: 0.85rem;
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  min-width: 100px; /* ensures buttons are uniform width */
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.card-actions .btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.card-actions .btn-light {
+  background-color: #f8f9fa;
+  color: #212529;
+  border: 1px solid #ced4da;
+}
+
+.card-actions .btn-light:hover {
+  background-color: green;
+  color: white;
+}
+
+.card-actions .btn-danger {
+  background-color: #dc3545;
+  color: #fff;
+  border: none;
+}
+
+.card-actions .btn-danger:hover {
+  background-color: #c82333;
+}
+
+/* -------------------- ORDER HISTORY SECTION -------------------- */
+.order-tracker-wrapper {
+  position: relative;
+  margin-bottom: 2rem;
+}
+
+.order-tracker {
+  display: flex;
+  justify-content: space-between;
+  position: relative;
+  z-index: 0;
+}
+
+.tracker-step {
+  text-align: center;
+  flex: 1;
+  position: relative;
+  z-index: 3;
+}
+
+.tracker-step .icon-circle {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #e0e0e0;
+  color: #555;
+  line-height: 40px;
+  margin: 0 auto;
+  font-weight: bold;
+}
+
+.tracker-step.active .icon-circle {
+  background: var(--anime-purple);
+  color: white;
+}
+
+.tracker-step .step-label {
+  margin-top: 8px;
+  font-size: 0.9rem;
+  color: #555;
+}
+
+.tracker-step.active .step-label {
+  color: var(--anime-purple);
+}
+
+/* Adjust for overlapping of lines behind */
+.progress-line {
+  /* default background line */
+}
+
+.progress-line-filled {
+  transition: width 0.3s ease;
+}

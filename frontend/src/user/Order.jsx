@@ -1,143 +1,165 @@
-// src/pages/Order.jsx
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import { useParams, useNavigate } from "react-router-dom";
+import { Spinner } from "react-bootstrap";
 
-// Map status to step index
-export function getStepIndex(status) {
-  switch (status.toLowerCase()) {
-    case "order placed":
-    case "processing":
-      return 0;
-    case "in transit":
-      return 1;
-    case "out for delivery":
-      return 2;
-    case "delivered":
-      return 3;
-    default:
-      return 0;
-  }
-}
+const API_BASE = process.env.REACT_APP_API_URL || window.location.origin;
 
-// Render order items
-export function OrderItems({ items }) {
-  return (
-    <ul className="row list-unstyled">
-      {items.map((item) => (
-        <li key={item.orderItemID} className="col-md-4 mb-3">
-          <figure className="itemside d-flex">
-            <div className="aside">
-              <img
-                src={item.image || "/images/placeholder.png"}
-                alt={item.name}
-                className="img-sm border"
-              />
-            </div>
-            <figcaption className="info ms-2">
-              <p className="title mb-1">{item.name}</p>
-              <span className="text-muted">
-                ${item.price.toFixed(2)} x {item.quantity} = ${(item.price * item.quantity).toFixed(2)}
-              </span>
-            </figcaption>
-          </figure>
-        </li>
-      ))}
-    </ul>
-  );
-}
+const steps = [
+  "Order Placed",
+  "Order Processed",
+  "Order Designing",
+  "Shipped",
+  "Delivered",
+];
 
-// Render progress tracker
-export function ProgressTracker({ status }) {
-  const activeStep = getStepIndex(status);
-  const steps = ["Order Placed", "In Transit", "Out for Delivery", "Delivered"];
-  const icons = ["fa-box", "fa-truck", "fa-truck-moving", "fa-check"];
-
-  return (
-    <div className="track mb-4 d-flex justify-content-between">
-      {steps.map((step, idx) => (
-        <div key={idx} className={`step text-center ${idx <= activeStep ? "active" : ""}`}>
-          <span className="icon mb-1">
-            <i className={`fa ${idx <= activeStep ? "fa-check text-success" : icons[idx]} fa-lg`}></i>
-          </span>
-          <div className="text">{step}</div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// Main Orders component
-function Orders({ userID }) {
-  const [orders, setOrders] = useState([]);
+export default function OrderDetail() {
+  const { orderID } = useParams();
+  const navigate = useNavigate();
+  const [order, setOrder] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchOrders = async () => {
+    const fetchOrder = async () => {
       try {
-        const res = await axios.get(`/api/orders/${userID}`);
-        setOrders(res.data);
+        const res = await fetch(`${API_BASE}/api/order/single/${orderID}`, {
+          credentials: "include",
+        });
+        const data = await res.json();
+        if (res.ok) {
+          setOrder(data);
+        } else {
+          console.error("Failed loading order:", data);
+        }
       } catch (err) {
-        console.error("Failed to fetch orders", err);
+        console.error("Fetch error:", err);
+      } finally {
+        setLoading(false);
       }
     };
-    fetchOrders();
-  }, [userID]);
+    fetchOrder();
+  }, [orderID]);
+
+  const getStepIndex = (status) => {
+    const i = steps.indexOf(status);
+    return i >= 0 ? i : 0;
+  };
+
+  if (loading) {
+    return (
+      <div className="text-center my-5">
+        <Spinner animation="border" />
+      </div>
+    );
+  }
+
+  if (!order) {
+    return <p className="text-center mt-5">Order not found.</p>;
+  }
+
+  const currentStep = getStepIndex(order.status);
 
   return (
     <div className="container my-5">
-      <article className="card">
-        <header className="card-header">My Orders / Tracking</header>
-        <div className="card-body">
-          {orders.length === 0 && <p>No orders found.</p>}
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <h2>Order #{order.orderID}</h2>
+        <button className="btn btn-outline-secondary" onClick={() => navigate(-1)}>
+          Back
+        </button>
+      </div>
 
-          {orders.map((order) => (
-            <div key={order.orderID} className="mb-4">
-              <h6>Order ID: {order.orderID}</h6>
-              <article className="card mb-3">
-                <div className="card-body row">
-                  <div className="col">
-                    <strong>Estimated Delivery time:</strong> <br />
-                    {new Date(order.created_at).toLocaleDateString()}
-                  </div>
-                  <div className="col">
-                    <strong>Shipping BY:</strong> <br />
-                    BLUEDART | <i className="fa fa-phone"></i> +1598675986
-                  </div>
-                  <div className="col">
-                    <strong>Status:</strong> <br />
-                    {order.status}
-                  </div>
-                  <div className="col">
-                    <strong>Tracking #:</strong> <br />
-                    {order.trackingNumber || "-"}
-                  </div>
-                </div>
-              </article>
+      {/* Order metadata */}
+      <div className="mb-4">
+        <div><strong>Tracking Number:</strong> {order.trackingNumber}</div>
+        <div><strong>Status:</strong> {order.status}</div>
+        <div><strong>Placed On:</strong> {new Date(order.created_at).toLocaleString()}</div>
+        <div>
+          <strong>Total:</strong> ${Number(order.total).toFixed(2)}
+        </div>
+      </div>
 
-              <ProgressTracker status={order.status} />
-              <OrderItems items={order.items} />
-
-              <hr />
-              <div>
-                <strong>Shipping Address:</strong>
-                <p>
-                  {order.address
-                    ? `${order.address.addressLine1}, ${order.address.city}, ${order.address.postalCode}`
-                    : "-"}
-                </p>
-                <strong>Payment Method:</strong>
-                <p>{order.payment ? order.payment.method : "-"}</p>
-              </div>
-
-              <a href="/orders" className="btn btn-warning mt-2">
-                <i className="fa fa-chevron-left"></i> Back to orders
-              </a>
+      {/* Progress / Timeline */}
+      <div className="order-tracker-wrapper mb-5">
+        <div className="order-tracker d-flex justify-content-between position-relative">
+          {steps.map((step, idx) => (
+            <div key={idx} className={`tracker-step ${idx <= currentStep ? "active" : ""}`}>
+              <div className="icon-circle">{idx + 1}</div>
+              <div className="step-label">{step}</div>
             </div>
           ))}
+          <div
+            className="progress-line position-absolute"
+            style={{
+              left: 0,
+              right: 0,
+              top: "24px",
+              height: "4px",
+              background: "#e0e0e0",
+              zIndex: 1,
+            }}
+          />
+          <div
+            className="progress-line-filled position-absolute"
+            style={{
+              left: 0,
+              top: "24px",
+              height: "4px",
+              width: `${(currentStep / (steps.length - 1)) * 100}%`,
+              background: "#6f42c1",
+              zIndex: 2,
+            }}
+          />
         </div>
-      </article>
+      </div>
+
+      {/* Items */}
+      <div className="mb-4">
+        <h4>Items</h4>
+        {order.items?.map((it) => (
+          <div key={it.orderItemID} className="d-flex align-items-center border-bottom py-2">
+            <img
+              src={it.image || "/images/placeholder.png"}
+              alt={it.name}
+              style={{ width: 80, height: 80, objectFit: "cover", marginRight: "1rem" }}
+            />
+            <div className="flex-grow-1">
+              <div><strong>{it.name}</strong></div>
+              <div>Qty: {it.quantity}</div>
+              <div>Price: ${Number(it.price).toFixed(2)}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Address / Payment */}
+      <div className="row">
+        <div className="col-md-6 mb-3">
+          <h5>Shipping Address</h5>
+          {order.address ? (
+            <div>
+              <div>{order.address.fullName}</div>
+              <div>
+                {order.address.unit && order.address.unit + " - "}
+                {order.address.address}
+              </div>
+              <div>
+                {order.address.city}, {order.address.state}
+              </div>
+              <div>{order.address.country}, {order.address.zipCode}</div>
+              <div>Phone: {order.address.phoneNum}</div>
+            </div>
+          ) : <div>No address info</div>}
+        </div>
+        <div className="col-md-6 mb-3">
+          <h5>Payment Info</h5>
+          {order.payment ? (
+            <div>
+              <div>Cardholder: {order.payment.cardName}</div>
+              <div>**** **** **** {order.payment.cardNum_last4}</div>
+              <div>Expires: {order.payment.expiryDate}</div>
+            </div>
+          ) : <div>No payment info</div>}
+        </div>
+      </div>
     </div>
   );
 }
-
-// Default export for proper import
-export default Orders;

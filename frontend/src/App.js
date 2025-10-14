@@ -18,6 +18,7 @@ import ThankYou from "./pages/Thankyou";
 // ---------- User Settings Pages ----------
 import Account from "./user/Account";
 import Order from "./user/Order";
+import Payment from "./user/Payment";
 
 // ---------- Admin Pages ----------
 import Products from "./admin/Products";
@@ -206,15 +207,11 @@ function AppWrapper() {
               />
             }
           />
-          <Route
-            path="/category/:id"
-            element={
-              <Category addToCart={addToCart} siteDiscount={siteDiscount} />
-            }
-          />
-          <Route path="/account" element={<PrivateRoute element={<Account user={user} setUser={setUser} />}/>}/>
-           <Route path="/order" element={<PrivateRoute element={<Order user={user} setUser={setUser} />}/>}/>
           <Route path="/thankyou" element={<ThankYou />} />
+          <Route path="/category/:id"element={<Category addToCart={addToCart} siteDiscount={siteDiscount} />}/>
+          <Route path="/account" element={<PrivateRoute element={<Account user={user} setUser={setUser} />}/>}/>
+          <Route path="/order" element={<PrivateRoute element={<Order user={user} setUser={setUser} />}/>}/>
+          <Route path="/payment" element={<PrivateRoute element={<Payment user={user} setUser={setUser} />}/>}/>
 
           {/* ADMIN ROUTES */}
           <Route

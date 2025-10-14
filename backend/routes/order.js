@@ -145,19 +145,16 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-// GET all orders for a user with items, address, and payment
-router.get("/:id", async (req, res) => {
+// ----------------- GET ALL ORDERS FOR A USER -----------------
+router.get("/user/:userID", async (req, res) => {
   const { userID } = req.params;
   try {
-    // Fetch orders
     const [orders] = await db.query(
       `SELECT * FROM orders WHERE userID = ? ORDER BY created_at DESC`,
       [userID]
     );
 
-    // Attach items, address, and payment
     for (let order of orders) {
-      // Order items
       const [items] = await db.query(
         `SELECT orderItemID, productID, name, price, quantity 
          FROM order_items WHERE orderID = ?`,
@@ -165,14 +162,12 @@ router.get("/:id", async (req, res) => {
       );
       order.items = items;
 
-      // Address
       const [addresses] = await db.query(
         `SELECT * FROM addresses WHERE addressID = ?`,
         [order.addressID]
       );
       order.address = addresses[0] || null;
 
-      // Payment
       const [payments] = await db.query(
         `SELECT * FROM payments WHERE paymentID = ?`,
         [order.paymentID]
@@ -186,6 +181,5 @@ router.get("/:id", async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
-
 
 module.exports = router;
