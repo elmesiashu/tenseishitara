@@ -95,31 +95,50 @@ export default function Checkout({ user }) {
     }
   }, [user]);
 
-  // Load cart from session
-  useEffect(() => {
-    const saved = JSON.parse(sessionStorage.getItem("checkoutCart")) || { cart: [], totals: {} };
-    setCart(saved.cart || []);
-    setSubTotal(saved.totals?.price || 0);
-    setTax(saved.totals?.tax || 0);
-    setTotal(saved.totals?.total || 0);
-  }, []);
-
+    // Load cart from sessionStorage
+    useEffect(() => {
+      const saved = JSON.parse(sessionStorage.getItem("checkoutCart")) || {
+        cart: [],
+        totals: {},
+      };
+      const mappedCart = (saved.cart || []).map((i) => ({
+        ...i,
+        qty: i.qty ?? i.quantity ?? 1,
+      }));
+      setCart(mappedCart);
+      setSubTotal(saved.totals?.price || 0);
+      setTax(saved.totals?.tax || 0);
+      setTotal(saved.totals?.total || 0);
+    }, []);
+    
   // Update states & cities when country/state changes
   useEffect(() => {
     if (newAddress.country) {
       const stateList = Object.keys(countryStateData[newAddress.country] || {});
       setStates(stateList);
-      const cityList = stateList.length ? countryStateData[newAddress.country][stateList[0]] || [] : [];
+      const cityList =
+        stateList.length > 0
+          ? countryStateData[newAddress.country][stateList[0]] || []
+          : [];
       setCities(cityList);
-      setNewAddress((prev) => ({ ...prev, state: stateList[0] || "", city: cityList[0] || "" }));
+      setNewAddress((prev) => ({
+        ...prev,
+        state: stateList[0] || "",
+        city: cityList[0] || "",
+      }));
     }
   }, [newAddress.country]);
 
   useEffect(() => {
     if (newAddress.country && newAddress.state) {
-      const cityList = countryStateData[newAddress.country][newAddress.state] || [];
+      const cityList =
+        countryStateData[newAddress.country][newAddress.state] || [];
       setCities(cityList);
-      if (!cityList.includes(newAddress.city)) setNewAddress((prev) => ({ ...prev, city: cityList[0] || "" }));
+      if (!cityList.includes(newAddress.city))
+        setNewAddress((prev) => ({
+          ...prev,
+          city: cityList[0] || "",
+        }));
     }
   }, [newAddress.state]);
 
@@ -129,15 +148,27 @@ export default function Checkout({ user }) {
 
     const fetchData = async () => {
       try {
-        const addrRes = await fetch(`${API_BASE}/api/addresses`, { credentials: "include" });
+        const addrRes = await fetch(`${API_BASE}/api/addresses`, {
+          credentials: "include",
+        });
         const addrData = await addrRes.json();
         setAddresses(addrData);
-        setSelectedAddressID(addrData.find((a) => a.is_primary)?.addressID || addrData[0]?.addressID || null);
+        setSelectedAddressID(
+          addrData.find((a) => a.is_primary)?.addressID ||
+            addrData[0]?.addressID ||
+            null
+        );
 
-        const payRes = await fetch(`${API_BASE}/api/payments`, { credentials: "include" });
+        const payRes = await fetch(`${API_BASE}/api/payments`, {
+          credentials: "include",
+        });
         const payData = await payRes.json();
         setPayments(payData);
-        setSelectedPaymentID(payData.find((p) => p.is_primary)?.paymentID || payData[0]?.paymentID || null);
+        setSelectedPaymentID(
+          payData.find((p) => p.is_primary)?.paymentID ||
+            payData[0]?.paymentID ||
+            null
+        );
 
         if (!addrData.length) setShowNewAddress(true);
         if (!payData.length) setShowNewPayment(true);
@@ -147,27 +178,45 @@ export default function Checkout({ user }) {
     };
 
     fetchData();
-  }, [user]);
+  }, [user?.userID]);
 
   const handleNewAddressChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setNewAddress((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
+    setNewAddress((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : value,
+    }));
   };
 
   const handleNewPaymentChange = (e) => {
     const { name, value, type, checked } = e.target;
-    if (name === "cardNum") setNewPayment((prev) => ({ ...prev, cardNum: value.replace(/\D/g, "").slice(0, 16) }));
-    else if (name === "cvv") setNewPayment((prev) => ({ ...prev, cvv: value.replace(/\D/g, "").slice(0, 3) }));
-    else setNewPayment((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
+    if (name === "cardNum")
+      setNewPayment((prev) => ({
+        ...prev,
+        cardNum: value.replace(/\D/g, "").slice(0, 16),
+      }));
+    else if (name === "cvv")
+      setNewPayment((prev) => ({
+        ...prev,
+        cvv: value.replace(/\D/g, "").slice(0, 3),
+      }));
+    else
+      setNewPayment((prev) => ({
+        ...prev,
+        [name]: type === "checkbox" ? checked : value,
+      }));
   };
 
   const isValidZip = (zip, country) => {
     if (!zip) return false;
     zip = zip.trim();
     switch (country) {
-      case "United States": return /^\d{5}(-\d{4})?$/.test(zip);
-      case "Canada": return /^[A-Za-z]\d[A-Za-z][ -]?\d[A-Za-z]\d$/.test(zip);
-      default: return zip.length >= 3;
+      case "United States":
+        return /^\d{5}(-\d{4})?$/.test(zip);
+      case "Canada":
+        return /^[A-Za-z]\d[A-Za-z][ -]?\d[A-Za-z]\d$/.test(zip);
+      default:
+        return zip.length >= 3;
     }
   };
 
@@ -270,6 +319,7 @@ export default function Checkout({ user }) {
     }
   };
 
+  // --- Place Order ---
   const handleMakePayment = async (e) => {
     e.preventDefault();
     setOrderError("");
@@ -281,49 +331,41 @@ export default function Checkout({ user }) {
       return;
     }
 
-    let addressIDToUse = selectedAddressID;
-    let paymentIDToUse = selectedPaymentID;
-
-    // Save new address if user selected "new"
-    if (selectedAddressID === "new") {
-      const newAddrID = await saveNewAddress();
-      if (!newAddrID) {
-        setOrderLoading(false);
-        return;
-      }
-      addressIDToUse = newAddrID;
-    }
-
-    // Save new payment if user selected "new"
-    if (selectedPaymentID === "new") {
-      const newPayID = await saveNewPayment();
-      if (!newPayID) {
-        setOrderLoading(false);
-        return;
-      }
-      paymentIDToUse = newPayID;
-    }
-
     try {
-      // Map cart items to match backend expectations
-      const formattedCart = cart.map(item => ({
-        productID: item.id,            // map id from cart
-        name: item.name,
-        price: item.price,
-        qty: item.quantity,            // map quantity from cart
-        options: item.selected_option_id
-          ? [{ optionID: item.selected_option_id }]
-          : []
-      }));
+      // Format cart items for backend
+      const formattedCart = cart.map((item) => {
+        const productID =
+          item.productID ||
+          item.id ||
+          (item.key ? parseInt(item.key.split("-")[0], 10) : null);
 
+        if (!productID) {
+          console.warn("Missing productID for cart item:", item);
+        }
+
+        return {
+          productID,
+          name: item.name || item.title || item.product_name || "Unnamed Product",
+          price: Number(item.price) || 0,
+          qty: item.qty ?? item.quantity ?? 1,
+          options: item.selected_option_id
+            ? [{ optionID: item.selected_option_id }]
+            : [],
+        };
+      });
+
+      // Prepare order data
       const orderData = {
         userID: user.userID,
         items: formattedCart,
-        addressID: addressIDToUse,
-        paymentID: paymentIDToUse,
-        total
+        addressID: selectedAddressID,
+        paymentID: selectedPaymentID,
+        total,
       };
 
+      console.log("Sending order data:", orderData);
+
+      // Send order to backend
       const orderRes = await fetch(`${API_BASE}/api/order`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -331,19 +373,36 @@ export default function Checkout({ user }) {
         body: JSON.stringify(orderData),
       });
 
-      if (!orderRes.ok) throw new Error("Order failed");
+      if (!orderRes.ok) {
+        const errorText = await orderRes.text();
+        throw new Error(`Order failed: ${errorText}`);
+      }
 
       const data = await orderRes.json();
+      console.log("Order success:", data);
 
-      // Clear sessionStorage cart
+      // Clear cart from sessionStorage, localStorage, and state
       sessionStorage.removeItem("checkoutCart");
+      localStorage.removeItem("cart");
+      if (setCart) setCart([]);
 
-      // Navigate to Thank You page with orderID
-      navigate("/thankyou", { state: { orderID: data.orderID } });
-
+      // Navigate to Thank You page
+      navigate("/thankyou", {
+        state: {
+          orderID: data.orderID,
+          items: formattedCart,
+          total,
+          address: selectedAddressID,
+          payment: selectedPaymentID,
+          subTotal,
+          tax,
+          status: "Order Placed",
+          created_at: new Date().toISOString(),
+        },
+      })
     } catch (err) {
       console.error("Order creation failed:", err);
-      setOrderError("Failed to place order.");
+      setOrderError("Failed to place order. Please try again.");
     } finally {
       setOrderLoading(false);
     }
@@ -546,6 +605,7 @@ export default function Checkout({ user }) {
 
               <button className="btn btn-primary w-100 mt-3" onClick={handleMakePayment} disabled={orderLoading || !hasValidAddress || !hasValidPayment}>
                 {orderLoading ? "Processing..." : "Proceed to Payment"}
+                {console.log("CART DATA:", cart)}
               </button>
             </div>
           </div>

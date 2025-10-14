@@ -13,6 +13,7 @@ import Cart from "./pages/Cart";
 import ProductInfo from "./pages/Product";
 import Category from "./pages/Category";
 import Checkout from "./pages/Checkout";
+import ThankYou from "./pages/Thankyou";
 
 // ---------- User Settings Pages ----------
 import Account from "./user/Account";
@@ -138,7 +139,7 @@ function AppWrapper() {
         <Navbar user={user} logout={logout} cart={cart} />
       )}
 
-      {/* ✅ Wrap Routes inside <main> for sticky footer layout */}
+      {/* Wrap Routes inside <main> for sticky footer layout */}
       <main>
         <Routes>
           {/* HOME */}
@@ -210,14 +211,8 @@ function AppWrapper() {
               <Category addToCart={addToCart} siteDiscount={siteDiscount} />
             }
           />
-          <Route
-            path="/account"
-            element={
-              <PrivateRoute
-                element={<Account user={user} setUser={setUser} />}
-              />
-            }
-          />
+          <Route path="/account" element={<PrivateRoute element={<Account user={user} setUser={setUser} />}/>}/>
+          <Route path="/thankyou" element={<ThankYou />} />
 
           {/* ADMIN ROUTES */}
           <Route

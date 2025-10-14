@@ -15,32 +15,38 @@ export default function ThankYou() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const orderID = location.state?.orderID || null;
+  const orderID = location.state?.orderID;
 
   useEffect(() => {
-    const fetchLastOrder = async () => {
+    if (!orderID) {
+      navigate("/"); // no orderID, redirect to home
+      return;
+    }
+
+    const fetchOrder = async () => {
       try {
-        let url = `${API_BASE}/api/order/user`;
-        const res = await fetch(url, { credentials: "include" });
-        const orders = await res.json();
-        if (!orders.length) return navigate("/");
+        const res = await fetch(`${API_BASE}/api/order/${orderID}`, {
+          credentials: "include",
+        });
+        if (!res.ok) throw new Error("Failed to fetch order");
+        const data = await res.json();
+        setOrder(data);
 
-        const lastOrder = orderID
-          ? orders.find((o) => o.orderID === orderID) || orders[0]
-          : orders[0];
-
-        setOrder(lastOrder);
+        // Clear cart session/localStorage after order
+        sessionStorage.removeItem("checkoutCart");
+        localStorage.removeItem("cart");
       } catch (err) {
-        console.error(err);
+        console.error("Error fetching order:", err);
+        navigate("/"); // redirect if failed
       }
     };
 
-    fetchLastOrder();
+    fetchOrder();
   }, [orderID, navigate]);
 
   if (!order) return <div className="text-center mt-5">Loading your order...</div>;
 
-  const { items, total, subTotal, tax, payment, address, orderID: ordNo, status, created_at } = order;
+  const { items, total, payment, address, orderID: ordNo, status, created_at } = order;
 
   const statusSteps = ["Order Placed", "In Transit", "Out for Delivery", "Delivered"];
   const currentStep = statusSteps.indexOf(status) + 1;
@@ -69,8 +75,8 @@ export default function ThankYou() {
               </div>
               {item.options?.length > 0 && (
                 <div className="row d-flex">
-                  {item.options.map((opt) => (
-                    <p key={opt.optionID} className="text-muted">{opt.optionName}: {opt.optionValue}</p>
+                  {item.options.map((opt, idx) => (
+                    <p key={idx} className="text-muted">{opt.optionName || `Option ${opt.optionID}`}: {opt.optionValue || "N/A"}</p>
                   ))}
                 </div>
               )}
@@ -84,14 +90,6 @@ export default function ThankYou() {
         <hr />
 
         <div className="total">
-          <div className="row">
-            <div className="col"><b>Subtotal:</b></div>
-            <div className="col d-flex justify-content-end"><b>${subTotal?.toFixed(2) || "0.00"}</b></div>
-          </div>
-          <div className="row">
-            <div className="col"><b>Tax:</b></div>
-            <div className="col d-flex justify-content-end"><b>${tax?.toFixed(2) || "0.00"}</b></div>
-          </div>
           <div className="row">
             <div className="col"><b>Total:</b></div>
             <div className="col d-flex justify-content-end"><b>${total?.toFixed(2) || "0.00"}</b></div>
@@ -128,59 +126,11 @@ export default function ThankYou() {
           </div>
         </div>
 
-        {/* Track Your Order Button */}
         <div className="text-center mt-4">
-          <button type="button" className="btn btn-primary d-flex mx-auto btn-lg" data-toggle="modal" data-target="#trackModal">
-            Track your order
+          <button className="btn btn-primary btn-lg" onClick={() => navigate("/")}>
+            Continue Shopping
           </button>
         </div>
-
-        {/* Track Your Order Modal */}
-        <div className="modal fade" id="trackModal">
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content">
-              <div className="modal-header">
-                <h4 className="modal-title mx-auto">Order Status<br />AWB Number-{ordNo}</h4>
-                <button type="button" className="close" data-dismiss="modal">&times;</button>
-              </div>
-              <div className="modal-body">
-                <div className="progress-track">
-                  <ul id="progressbar">
-                    {statusSteps.map((step, idx) => (
-                      <li key={idx} className={`step0 ${currentStep > idx ? "active" : ""}`}>{step}</li>
-                    ))}
-                  </ul>
-                </div>
-                <div className="row">
-                  <div className="col-9">
-                    <div className="details d-table">
-                      <div className="d-table-row">
-                        <div className="d-table-cell">Shipped with</div>
-                        <div className="d-table-cell">UPS Expedited</div>
-                      </div>
-                      <div className="d-table-row">
-                        <div className="d-table-cell">Estimated Delivery</div>
-                        <div className="d-table-cell">{estimatedDelivery}</div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="col-3">
-                    <div className="d-table-row">
-                      <a href="#"><i className="fa fa-phone" aria-hidden="true"></i></a>
-                    </div>
-                    <div className="d-table-row">
-                      <a href="#"><i className="fa fa-envelope" aria-hidden="true"></i></a>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <button className="btn d-flex mx-auto mt-4" onClick={() => navigate("/")}>
-          Continue Shopping
-        </button>
       </div>
     </div>
   );
